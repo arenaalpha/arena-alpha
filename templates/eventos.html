@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Eventos | Arena Alpha{% endblock %}
+{% block content %}
+<section class="cabecalho"><p class="selo">EVENTOS NA ARENA</p><h1>Seu evento tem lugar aqui.</h1><p>Reserve a Arena Alpha para aniversários, confraternizações e encontros esportivos.</p></section>
+<form class="formulario" method="post"><label>Nome do responsável<input name="nome" required maxlength="120" autocomplete="name"></label><label>WhatsApp com DDD<input name="telefone" required maxlength="20" inputmode="tel" placeholder="(11) 99999-9999" autocomplete="tel"></label><label>Data do evento<input name="data" type="date" required min="{{ hoje }}"></label><p class="nota">Reserva de evento: das 9h às 22h · R$ 300,00. A confirmação será feita pela Arena.</p><div class="armadilha"><label>Não preencha<input name="website" tabindex="-1" autocomplete="off"></label></div><button class="botao" type="submit">Solicitar reserva de evento</button></form>
+{% endblock %}

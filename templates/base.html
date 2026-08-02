@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% block title %}Arena Alpha{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}"></head>
+<body><header class="topo"><a class="marca" href="{{ url_for('inicio') }}">ARENA <span>ALPHA</span></a><nav><a href="{{ url_for('aulas') }}">Aula experimental</a><a href="{{ url_for('eventos') }}">Eventos</a><a href="{{ url_for('portal') }}">Portal do aluno</a></nav></header>
+<main class="conteudo">{% with mensagens = get_flashed_messages(with_categories=true) %}{% for categoria, mensagem in mensagens %}<p class="alerta {{ categoria }}">{{ mensagem }}</p>{% endfor %}{% endwith %}{% block content %}{% endblock %}</main><footer>ARENA ALPHA · Gestão esportiva</footer></body></html>

@@ -1,0 +1,5 @@
+customtkinter>=5.2,<6
+openai>=1.0,<2
+pillow>=10,<12
+Flask>=3.0,<4
+gunicorn>=22,<24

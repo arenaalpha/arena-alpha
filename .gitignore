@@ -1,0 +1,8 @@
+# Dados locais e segredos
+arena_alpha.db
+*.db-journal
+.env
+
+# Arquivos gerados pelo Python
+__pycache__/
+*.py[cod]

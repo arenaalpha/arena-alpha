@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Portal do aluno | Arena Alpha{% endblock %}
+{% block content %}
+<section class="cabecalho"><p class="selo">ÁREA DO ALUNO</p><h1>Minha Arena.</h1><p>Consulte suas mensalidades e os dados do seu plano com segurança.</p></section>
+<form class="formulario" method="post"><label>CPF<input name="cpf" required inputmode="numeric" maxlength="18" placeholder="000.000.000-00" autocomplete="username"></label><label>Data de nascimento<input name="nascimento" required placeholder="dd/mm/aaaa" autocomplete="bday"></label><button class="botao" type="submit">Entrar no portal</button></form>
+<p class="nota">Primeiro acesso? Use os mesmos CPF e data de nascimento cadastrados na Arena.</p>
+{% endblock %}
