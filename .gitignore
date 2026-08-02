@@ -1,6 +1,7 @@
 # Dados locais e segredos
 arena_alpha.db
 *.db-journal
+backup_*.db
 .env
 
 # Arquivos gerados pelo Python
