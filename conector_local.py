@@ -66,6 +66,20 @@ def aluno_portal():
     return jsonify(aluno={campo: aluno[campo] for campo in campos}, pagamentos=[dict(item) for item in pagamentos], aulas=aulas_matriculadas(aluno["id"]))
 
 
+@app.post("/painel-admin")
+def painel_admin():
+    corpo = request.get_data()
+    assinatura = request.headers.get("X-Arena-Signature", "")
+    esperada = hmac.new(SEGREDO.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    if not SEGREDO or not hmac.compare_digest(assinatura, esperada):
+        return jsonify(erro="Assinatura invalida."), 401
+    with conectar() as banco:
+        alunos = banco.execute("SELECT nome, whatsapp, esporte, frequencia, dia_vencimento FROM alunos ORDER BY nome").fetchall()
+        turmas = banco.execute("SELECT nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
+        reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
+    return jsonify(alunos=[dict(item) for item in alunos], turmas=[dict(item) for item in turmas], reservas=[dict(item) for item in reservas])
+
+
 def normalizar(texto):
     return "".join(c for c in unicodedata.normalize("NFD", (texto or "").lower()) if unicodedata.category(c) != "Mn")
 

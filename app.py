@@ -4,11 +4,13 @@ import calendar
 import json
 import hmac
 import hashlib
+from functools import wraps
 from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash
 
 from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
@@ -68,6 +70,20 @@ def turmas_abertas():
 def consultar_aluno_local(cpf):
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino:
+        return None
+
+
+def consultar_painel_local():
+    destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
+    if not destino or not segredo:
+        return None
+    corpo = b""
+    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    requisicao = Request(f"{destino}/painel-admin", data=corpo, method="POST", headers={"X-Arena-Signature": assinatura})
+    try:
+        with urlopen(requisicao, timeout=12) as resposta:
+            return json.loads(resposta.read().decode("utf-8"))
+    except (URLError, HTTPError, json.JSONDecodeError):
         return None
     corpo = json.dumps({"cpf": cpf}).encode("utf-8")
     assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
@@ -157,6 +173,16 @@ def aluno_do_portal():
         ).fetchone()
 
 
+def exige_admin(funcao):
+    @wraps(funcao)
+    def protegida(*args, **kwargs):
+        if not session.get("admin_portal"):
+            flash("Entre com o acesso administrativo.", "erro")
+            return redirect(url_for("admin"))
+        return funcao(*args, **kwargs)
+    return protegida
+
+
 @app.before_request
 def preparar_banco():
     criar_tabelas()
@@ -191,6 +217,37 @@ def portal():
                     return redirect(url_for("meu_portal"))
             flash("Não encontramos um aluno com esses dados. Peça à Arena para conferir seu cadastro.", "erro")
     return render_template("portal_login.html")
+
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+    if request.method == "POST":
+        usuario = request.form.get("usuario", "").strip()
+        senha = request.form.get("senha", "")
+        usuario_admin = os.environ.get("ADMIN_USER", "")
+        senha_admin = os.environ.get("ADMIN_PASSWORD_HASH", "")
+        if usuario == usuario_admin and senha_admin and check_password_hash(senha_admin, senha):
+            session.clear()
+            session["admin_portal"] = True
+            return redirect(url_for("painel_admin"))
+        flash("Usuário ou senha incorretos.", "erro")
+    return render_template("admin_login.html")
+
+
+@app.get("/admin/painel")
+@exige_admin
+def painel_admin():
+    painel = consultar_painel_local()
+    if painel is None:
+        flash("O computador da Arena está sem conexão no momento.", "erro")
+        painel = {"alunos": [], "turmas": [], "reservas": []}
+    return render_template("admin_painel.html", **painel)
+
+
+@app.post("/admin/sair")
+def sair_admin():
+    session.clear()
+    return redirect(url_for("admin"))
 
 
 @app.get("/portal/minha-conta")
