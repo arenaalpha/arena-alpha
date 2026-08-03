@@ -335,7 +335,9 @@ def painel_admin():
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
         painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": []}
-    return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), **painel)
+    hoje = date.today()
+    calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
+    return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), calendario_mes=calendario_mes, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
 @app.post("/admin/acao")
