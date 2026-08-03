@@ -341,7 +341,21 @@ def painel_admin():
         painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
-    return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), calendario_mes=calendario_mes, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
+    nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
+    agenda_mensal = {}
+    for semana in calendario_mes:
+        for numero in semana:
+            if not numero:
+                continue
+            data_atual, itens = date(hoje.year, hoje.month, numero), []
+            for turma in painel.get("turmas", []):
+                if nomes_dias[data_atual.weekday()] in ((turma.get("dia_semana") or "").lower(), (turma.get("dia_semana_2") or "").lower()):
+                    itens.append(f"Aula · {turma['horario']} · {turma['nome']}")
+            for reserva in painel.get("reservas", []):
+                if reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
+                    itens.append(f"Reserva · {reserva.get('horario') or '-'} · {reserva.get('cliente')}")
+            agenda_mensal[numero] = itens
+    return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
 @app.post("/admin/acao")
