@@ -19,6 +19,7 @@ from modules.alunos import Alunos
 from modules.financeiro import Financeiro
 from modules.pagamentos import Pagamentos
 from modules.turmas import Turmas
+from modules.modalidades import Modalidades
 
 
 app = Flask(__name__)
@@ -119,11 +120,12 @@ def consultar_painel_local():
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
             despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
             experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
+            modalidades = Modalidades().listar()
         atrasados = []
         for item in Pagamentos().situacao_atual():
             if item["status"] == "Em atraso" and item["aluno"]["whatsapp"]:
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "atrasados": atrasados}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "atrasados": atrasados}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -160,6 +162,9 @@ def enviar_acao_admin(acao, dados):
         if acao == "nova_turma":
             Turmas().criar(dados["nome"], dados["dia_semana"], dados["dia_semana_2"], dados["horario"], dados.get("professor", ""), dados["modalidade"])
             return {"mensagem": "Turma criada."}
+        if acao == "nova_modalidade":
+            Modalidades().criar(dados.get("nome", ""))
+            return {"mensagem": "Modalidade criada e disponível para novas turmas."}
         if acao == "novo_aluno":
             obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
             if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
@@ -349,7 +354,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")

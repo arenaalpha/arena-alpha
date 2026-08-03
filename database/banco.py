@@ -84,9 +84,12 @@ def _criar_postgres():
         "CREATE TABLE IF NOT EXISTS presencas (id SERIAL PRIMARY KEY,matricula_id INTEGER NOT NULL,data TEXT NOT NULL,UNIQUE(matricula_id,data))",
         "CREATE TABLE IF NOT EXISTS aulas_experimentais (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,telefone TEXT NOT NULL,esporte TEXT NOT NULL,data TEXT NOT NULL,horario TEXT,confirmacao_enviada INTEGER DEFAULT 0)",
         "CREATE TABLE IF NOT EXISTS portal_acessos (aluno_id INTEGER PRIMARY KEY,ultimo_acesso TEXT)",
+        "CREATE TABLE IF NOT EXISTS modalidades (id SERIAL PRIMARY KEY,nome TEXT NOT NULL UNIQUE)",
     )
     with conectar() as banco:
         for sql in tabelas: banco.execute(sql)
+        for nome in ("Volei de areia", "Futvolei"):
+            banco.execute("INSERT INTO modalidades (nome) VALUES (?) ON CONFLICT (nome) DO NOTHING", (nome,))
         if banco.execute("SELECT COUNT(*) AS quantidade FROM quadras").fetchone()["quantidade"] == 0:
             banco.execute("INSERT INTO quadras (nome, modalidade) VALUES (?, ?)", ("Quadra Principal", "Arena Alpha"))
 
@@ -106,6 +109,7 @@ def _criar_sqlite():
         "CREATE TABLE IF NOT EXISTS presencas (id INTEGER PRIMARY KEY AUTOINCREMENT,matricula_id INTEGER NOT NULL,data TEXT NOT NULL,UNIQUE(matricula_id,data))",
         "CREATE TABLE IF NOT EXISTS aulas_experimentais (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,telefone TEXT NOT NULL,esporte TEXT NOT NULL,data TEXT NOT NULL,horario TEXT,confirmacao_enviada INTEGER DEFAULT 0)",
         "CREATE TABLE IF NOT EXISTS portal_acessos (aluno_id INTEGER PRIMARY KEY,ultimo_acesso TEXT)",
+        "CREATE TABLE IF NOT EXISTS modalidades (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL UNIQUE)",
     )
     with conectar() as banco:
         for sql in tabelas: banco.execute(sql)
@@ -117,5 +121,7 @@ def _criar_sqlite():
             existentes = {linha["name"] for linha in banco.execute(f"PRAGMA table_info({tabela})").fetchall()}
             for nome, tipo in colunas.items():
                 if nome not in existentes: banco.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
+        for nome in ("Volei de areia", "Futvolei"):
+            banco.execute("INSERT INTO modalidades (nome) VALUES (?) ON CONFLICT (nome) DO NOTHING", (nome,))
         if banco.execute("SELECT COUNT(*) FROM quadras").fetchone()[0] == 0:
             banco.execute("INSERT INTO quadras (nome, modalidade) VALUES (?, ?)", ("Quadra Principal", "Arena Alpha"))
