@@ -12,6 +12,7 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
 from modules.aulas_experimentais import AulasExperimentais
+from modules.turmas import Turmas
 
 
 app = Flask(__name__)
@@ -47,6 +48,20 @@ def encaminhar_para_banco_local(tipo, dados):
     except (URLError, TimeoutError):
         raise ValueError("A Arena esta temporariamente sem conexao com o banco. Tente novamente em alguns minutos.")
     return True
+
+
+def turmas_abertas():
+    destino = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/")
+    segredo = os.environ.get("SYNC_SECRET", "")
+    if not destino:
+        return [dict(turma) for turma in Turmas().listar()]
+    assinatura = hmac.new(segredo.encode("utf-8"), b"", hashlib.sha256).hexdigest()
+    requisicao = Request(f"{destino}/turmas-abertas", headers={"X-Arena-Signature": assinatura})
+    try:
+        with urlopen(requisicao, timeout=8) as resposta:
+            return json.loads(resposta.read().decode("utf-8"))
+    except (URLError, HTTPError, json.JSONDecodeError):
+        return []
 
 
 def data_do_formulario(valor):
@@ -122,12 +137,15 @@ def sair_portal():
 
 @app.route("/aulas", methods=["GET", "POST"])
 def aulas():
+    turmas = turmas_abertas()
     if request.method == "POST":
         if request.form.get("website"):
             return redirect(url_for("aulas"))
         try:
-            data = data_do_formulario(request.form["data"])
-            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": request.form.get("esporte", ""), "data": data, "horario": request.form.get("horario", "")}
+            turma = next((item for item in turmas if str(item["id"]) == request.form.get("turma_id")), None)
+            if turma is None:
+                raise ValueError("Escolha uma turma aberta e um horario disponivel.")
+            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": turma["modalidade"], "data": turma["proxima_data"], "horario": turma["horario"]}
             if not encaminhar_para_banco_local("aula", dados):
                 AulasExperimentais().agendar(**dados)
         except (KeyError, ValueError) as erro:
@@ -135,7 +153,7 @@ def aulas():
         else:
             flash("Pedido de aula recebido! Em breve confirmaremos pelo WhatsApp.", "sucesso")
             return redirect(url_for("aulas"))
-    return render_template("aulas.html", hoje=date.today().isoformat())
+    return render_template("aulas.html", turmas=turmas)
 
 
 @app.route("/locacao", methods=["GET", "POST"])
