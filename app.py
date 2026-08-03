@@ -77,6 +77,25 @@ def consultar_painel_local():
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
+
+
+def enviar_acao_admin(acao, dados):
+    destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
+    if not destino or not segredo:
+        raise ValueError("O computador da Arena está sem conexão.")
+    corpo = json.dumps({"acao": acao, "dados": dados}, ensure_ascii=False).encode("utf-8")
+    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    requisicao = Request(f"{destino}/admin-acao", data=corpo, method="POST", headers={"Content-Type": "application/json", "X-Arena-Signature": assinatura})
+    try:
+        with urlopen(requisicao, timeout=12) as resposta:
+            return json.loads(resposta.read().decode("utf-8"))
+    except HTTPError as erro:
+        try:
+            raise ValueError(json.loads(erro.read().decode("utf-8")).get("erro", "Ação recusada."))
+        except json.JSONDecodeError:
+            raise ValueError("Ação recusada pelo sistema local.")
+    except (URLError, TimeoutError):
+        raise ValueError("O computador da Arena está sem conexão.")
     corpo = b""
     assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
     requisicao = Request(f"{destino}/painel-admin", data=corpo, method="POST", headers={"X-Arena-Signature": assinatura})
@@ -241,7 +260,20 @@ def painel_admin():
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
         painel = {"alunos": [], "turmas": [], "reservas": []}
-    return render_template("admin_painel.html", **painel)
+    return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), **painel)
+
+
+@app.post("/admin/acao")
+@exige_admin
+def acao_admin():
+    acao = request.form.get("acao", "")
+    dados = {chave: valor.strip() for chave, valor in request.form.items() if chave != "acao"}
+    try:
+        resultado = enviar_acao_admin(acao, dados)
+        flash(resultado.get("mensagem", "Alteração salva."), "sucesso")
+    except ValueError as erro:
+        flash(str(erro), "erro")
+    return redirect(url_for("painel_admin", secao=request.form.get("secao", "inicio")))
 
 
 @app.post("/admin/sair")

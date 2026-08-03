@@ -10,6 +10,8 @@ from flask import Flask, jsonify, request
 from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
 from modules.aulas_experimentais import AulasExperimentais
+from modules.alunos import Alunos
+from modules.pagamentos import Pagamentos
 from modules.turmas import Turmas
 
 
@@ -74,10 +76,43 @@ def painel_admin():
     if not SEGREDO or not hmac.compare_digest(assinatura, esperada):
         return jsonify(erro="Assinatura invalida."), 401
     with conectar() as banco:
-        alunos = banco.execute("SELECT nome, whatsapp, esporte, frequencia, dia_vencimento FROM alunos ORDER BY nome").fetchall()
-        turmas = banco.execute("SELECT nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
+        alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
+        turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
         reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
-    return jsonify(alunos=[dict(item) for item in alunos], turmas=[dict(item) for item in turmas], reservas=[dict(item) for item in reservas])
+        pagamentos = banco.execute("SELECT aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
+        experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
+    return jsonify(alunos=[dict(item) for item in alunos], turmas=[dict(item) for item in turmas], reservas=[dict(item) for item in reservas], pagamentos=[dict(item) for item in pagamentos], experimentais=[dict(item) for item in experimentais])
+
+
+@app.post("/admin-acao")
+def admin_acao():
+    corpo = request.get_data()
+    assinatura = request.headers.get("X-Arena-Signature", "")
+    esperada = hmac.new(SEGREDO.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    if not SEGREDO or not hmac.compare_digest(assinatura, esperada):
+        return jsonify(erro="Assinatura invalida."), 401
+    conteudo = request.get_json(silent=True) or {}
+    dados, acao = conteudo.get("dados") or {}, conteudo.get("acao")
+    try:
+        if acao == "novo_aluno":
+            if not dados.get("nome") or not dados.get("whatsapp"):
+                raise ValueError("Informe nome e WhatsApp.")
+            Alunos().cadastrar(nome=dados["nome"], telefone=dados["whatsapp"], whatsapp=dados["whatsapp"], esporte=dados.get("esporte", ""), frequencia=dados.get("frequencia", ""), valor_plano=float(dados.get("valor_plano") or 0), dia_vencimento=int(dados.get("dia_vencimento") or 1), data_inscricao=date.today().strftime("%d/%m/%Y"))
+            mensagem = "Aluno cadastrado."
+        elif acao == "nova_turma":
+            Turmas().criar(dados["nome"], dados["dia_semana"], dados["dia_semana_2"], dados["horario"], dados.get("professor", ""), dados["modalidade"])
+            mensagem = "Turma criada."
+        elif acao == "status_turma":
+            Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
+            mensagem = "Status da aula atualizado."
+        elif acao == "pagamento":
+            resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), dados["data_pagamento"])
+            mensagem = f"Pagamento registrado: {resultado['status']}."
+        else:
+            return jsonify(erro="Ação administrativa inválida."), 400
+    except (KeyError, TypeError, ValueError) as erro:
+        return jsonify(erro=str(erro)), 422
+    return jsonify(mensagem=mensagem)
 
 
 def normalizar(texto):
