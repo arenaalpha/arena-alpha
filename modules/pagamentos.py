@@ -5,6 +5,12 @@ from database.banco import conectar
 
 
 class Pagamentos:
+    def excluir(self, identificador):
+        with conectar() as banco:
+            resultado = banco.execute("DELETE FROM pagamentos WHERE id = ?", (identificador,))
+        if resultado.rowcount == 0:
+            raise ValueError("Pagamento nao encontrado.")
+
     def _vencimento_do_mes(self, dia_vencimento, referencia):
         ultimo_dia = calendar.monthrange(referencia.year, referencia.month)[1]
         return date(referencia.year, referencia.month, min(int(dia_vencimento), ultimo_dia))

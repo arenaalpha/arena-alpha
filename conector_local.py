@@ -84,9 +84,10 @@ def painel_admin():
         alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
         turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
         reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
-        pagamentos = banco.execute("SELECT aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
+        pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
+        despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
         experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
-    return jsonify(alunos=[dict(item) for item in alunos], turmas=[dict(item) for item in turmas], reservas=[dict(item) for item in reservas], pagamentos=[dict(item) for item in pagamentos], experimentais=[dict(item) for item in experimentais])
+    return jsonify(alunos=[dict(item) for item in alunos], turmas=[dict(item) for item in turmas], reservas=[dict(item) for item in reservas], pagamentos=[dict(item) for item in pagamentos], despesas=[dict(item) for item in despesas], experimentais=[dict(item) for item in experimentais])
 
 
 @app.post("/admin-acao")
@@ -140,6 +141,13 @@ def admin_acao():
         elif acao == "limpar_reservas":
             Agenda().limpar_historico()
             mensagem = "Historico de reservas da quadra apagado."
+        elif acao == "excluir_pagamento":
+            Pagamentos().excluir(int(dados["pagamento_id"]))
+            mensagem = "Pagamento excluido."
+        elif acao == "excluir_despesa":
+            from modules.financeiro import Financeiro
+            Financeiro().excluir(int(dados["despesa_id"]))
+            mensagem = "Despesa excluida."
         else:
             return jsonify(erro="Ação administrativa inválida."), 400
     except (KeyError, TypeError, ValueError) as erro:

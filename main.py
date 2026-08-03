@@ -240,7 +240,7 @@ class ArenaAlpha(ctk.CTk):
                 AulasExperimentais().limpar_historico()
                 messagebox.showinfo("Historico resetado", "O historico de aulas experimentais foi apagado.")
                 self.mostrar_aula_experimental()
-        ctk.CTkButton(painel, text="Resetar historico de aulas", command=resetar_historico_aulas, height=36, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 12))
+        ctk.CTkButton(painel, text="Limpar aulas experimentais", command=resetar_historico_aulas, height=36, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 12))
         lista = ctk.CTkTextbox(painel, height=170, font=("Cascadia Mono", 12), fg_color=("#F6F1E7", "#111111"), corner_radius=10)
         lista.pack(fill="both", expand=True, padx=22, pady=(0, 20))
         texto = "Nenhuma aula experimental agendada." if not aulas else "\n\n".join(
@@ -515,7 +515,7 @@ class ArenaAlpha(ctk.CTk):
                 Agenda().limpar_historico()
                 messagebox.showinfo("Historico resetado", "O historico de locacoes foi apagado.")
                 self.mostrar_locacao()
-        ctk.CTkButton(painel, text="Resetar historico de locacoes", command=resetar_historico_locacoes, height=36, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 12))
+        ctk.CTkButton(painel, text="Limpar reservas da quadra", command=resetar_historico_locacoes, height=36, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 12))
         ctk.CTkLabel(self.conteudo, text="Locacoes recentes", font=("Segoe UI", 18, "bold")).pack(anchor="w", pady=(20, 8))
         lista = ctk.CTkTextbox(self.conteudo, height=170, font=("Cascadia Mono", 12), fg_color=("#FFFFFF", "#163B52"), corner_radius=14)
         lista.pack(fill="both", expand=True)
@@ -974,7 +974,7 @@ class ArenaAlpha(ctk.CTk):
         painel.pack(fill="both", expand=True)
         ctk.CTkLabel(painel, text="Excluir cadastro", font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=22, pady=(20, 4))
         ctk.CTkLabel(painel, text="Escolha o tipo de registro e depois selecione o item a excluir.", font=("Segoe UI", 12), text_color=("#5B7280", "#ABC6D2")).pack(anchor="w", padx=22, pady=(0, 12))
-        tipos = {"Aluno": Alunos(), "Turma": Turmas(), "Professor": Professores()}
+        tipos = {"Aluno": (Alunos(), "nome"), "Turma": (Turmas(), "nome"), "Professor": (Professores(), "nome"), "Pagamento recebido": (Pagamentos(), "aluno"), "Despesa": (Financeiro(), "descricao")}
         tipo_var = ctk.StringVar(value="Aluno")
         item_var = ctk.StringVar(value="Selecione um registro")
         menu_tipo = ctk.CTkOptionMenu(painel, values=list(tipos), variable=tipo_var, height=36, fg_color=self.PRIMARIA, button_color="#0891B2")
@@ -987,10 +987,10 @@ class ArenaAlpha(ctk.CTk):
 
         def atualizar_registros(valor=None):
             nonlocal registros_atuais
-            repositorio = tipos[tipo_var.get()]
+            repositorio, campo_nome = tipos[tipo_var.get()]
             registros = repositorio.listar()
             registros_atuais = {
-                f"#{linha['id']} - {linha['nome']}": linha["id"] for linha in registros
+                f"#{linha['id']} - {linha[campo_nome]}": linha["id"] for linha in registros
             }
             opcoes = list(registros_atuais) or ["Nenhum registro encontrado"]
             menu_item.configure(values=opcoes)
@@ -1012,7 +1012,7 @@ class ArenaAlpha(ctk.CTk):
             if not messagebox.askyesno("Confirmar exclusao", f"Excluir este {tipo}? Esta acao nao pode ser desfeita."):
                 return
             try:
-                tipos[tipo_var.get()].excluir(identificador)
+                tipos[tipo_var.get()][0].excluir(identificador)
             except ValueError as erro:
                 messagebox.showerror("Erro", str(erro))
                 return

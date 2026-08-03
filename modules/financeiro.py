@@ -4,6 +4,16 @@ from database.banco import conectar
 
 
 class Financeiro:
+    def excluir(self, identificador):
+        with conectar() as banco:
+            resultado = banco.execute("DELETE FROM despesas WHERE id = ?", (identificador,))
+        if resultado.rowcount == 0:
+            raise ValueError("Despesa nao encontrada.")
+
+    def listar(self):
+        with conectar() as banco:
+            return banco.execute("SELECT * FROM despesas ORDER BY id DESC").fetchall()
+
     @staticmethod
     def _data_iso(data_texto):
         if isinstance(data_texto, date):

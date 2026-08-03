@@ -16,6 +16,7 @@ from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
 from modules.aulas_experimentais import AulasExperimentais
 from modules.alunos import Alunos
+from modules.financeiro import Financeiro
 from modules.pagamentos import Pagamentos
 from modules.turmas import Turmas
 
@@ -115,9 +116,10 @@ def consultar_painel_local():
             alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
             turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
             reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
-            pagamentos = banco.execute("SELECT aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
+            pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
+            despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
             experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "experimentais": [dict(item) for item in experimentais]}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais]}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -139,6 +141,12 @@ def enviar_acao_admin(acao, dados):
         if acao == "limpar_reservas":
             Agenda().limpar_historico()
             return {"mensagem": "Historico de reservas da quadra apagado."}
+        if acao == "excluir_pagamento":
+            Pagamentos().excluir(int(dados["pagamento_id"]))
+            return {"mensagem": "Pagamento excluido."}
+        if acao == "excluir_despesa":
+            Financeiro().excluir(int(dados["despesa_id"]))
+            return {"mensagem": "Despesa excluida."}
         if acao == "status_turma":
             Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
             return {"mensagem": "Status da aula atualizado."}
@@ -326,7 +334,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "reservas": []}
+        painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": []}
     return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), **painel)
 
 
