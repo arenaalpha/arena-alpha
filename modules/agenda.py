@@ -100,3 +100,7 @@ class Agenda(Repositorio):
             tipo_locacao=tipo_locacao, duracao_horas=duracao, valor=valor, whatsapp=whatsapp,
         )
         return valor, horario
+
+    def limpar_historico(self):
+        with conectar() as banco:
+            banco.execute("DELETE FROM agenda")

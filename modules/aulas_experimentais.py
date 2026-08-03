@@ -37,3 +37,7 @@ class AulasExperimentais:
     def marcar_confirmacao(self, identificador):
         with conectar() as banco:
             banco.execute("UPDATE aulas_experimentais SET confirmacao_enviada = 1 WHERE id = ?", (identificador,))
+
+    def limpar_historico(self):
+        with conectar() as banco:
+            banco.execute("DELETE FROM aulas_experimentais")
