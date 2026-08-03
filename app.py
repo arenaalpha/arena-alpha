@@ -1,5 +1,6 @@
 """Portal web publico da Arena Alpha."""
 import os
+import calendar
 import json
 import hmac
 import hashlib
@@ -86,6 +87,30 @@ def somente_numeros(valor):
     return "".join(caractere for caractere in (valor or "") if caractere.isdigit())
 
 
+def situacao_pagamento_portal(aluno, pagamentos, referencia=None):
+    """Resume a mensalidade do mês atual para o Portal do Aluno."""
+    referencia = referencia or date.today()
+    try:
+        dia = int(aluno.get("dia_vencimento") if isinstance(aluno, dict) else aluno["dia_vencimento"])
+    except (TypeError, ValueError):
+        return {"texto": "Vencimento não configurado", "classe": "pendente", "vencimento": None}
+    vencimento = date(referencia.year, referencia.month, min(dia, calendar.monthrange(referencia.year, referencia.month)[1]))
+    mes_atual = referencia.strftime("%Y-%m")
+    for pagamento in pagamentos:
+        pago_em = pagamento.get("pago_em") if isinstance(pagamento, dict) else pagamento["pago_em"]
+        if pago_em and str(pago_em).startswith(mes_atual):
+            status = (pagamento.get("status") if isinstance(pagamento, dict) else pagamento["status"]) or "Pago em dia"
+            return {"texto": status, "classe": "atrasado" if "atraso" in status.lower() else "pago", "vencimento": vencimento}
+    if referencia > vencimento:
+        return {"texto": "Em atraso", "classe": "atrasado", "vencimento": vencimento}
+    return {"texto": "Em dia", "classe": "pago", "vencimento": vencimento}
+
+
+def tem_desconto_volei(aluno):
+    esporte = aluno.get("esporte", "") if isinstance(aluno, dict) else aluno["esporte"]
+    return "volei" in (esporte or "").lower().replace("ô", "o")
+
+
 def aluno_do_portal():
     aluno_sessao = session.get("aluno_portal")
     if aluno_sessao:
@@ -149,7 +174,10 @@ def meu_portal():
                    WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC""",
                 (aluno["id"], aluno["nome"]),
             ).fetchall()
-    return render_template("portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=turmas_abertas())
+    return render_template(
+        "portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=turmas_abertas(),
+        situacao_pagamento=situacao_pagamento_portal(aluno, pagamentos), desconto_volei=tem_desconto_volei(aluno),
+    )
 
 
 @app.post("/portal/sair")
