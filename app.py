@@ -187,7 +187,7 @@ def eventos():
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
-            flash("Solicitação de evento recebida! A Arena confirmará pelo WhatsApp.", "sucesso")
+            flash("Sua reserva entrou na fila. Aguarde a confirmação da Arena pelo WhatsApp.", "sucesso")
             return redirect(url_for("eventos"))
     return render_template("eventos.html", hoje=date.today().isoformat())
 
