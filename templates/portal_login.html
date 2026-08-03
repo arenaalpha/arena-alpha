@@ -2,6 +2,11 @@
 {% block title %}Portal do aluno | Arena Alpha{% endblock %}
 {% block content %}
 <section class="cabecalho"><p class="selo">ÁREA DO ALUNO</p><h1>Minha Arena.</h1><p>Consulte suas mensalidades e os dados do seu plano com segurança.</p></section>
-<form class="formulario" method="post"><label>CPF<input name="cpf" required inputmode="numeric" maxlength="18" placeholder="000.000.000-00" autocomplete="username"></label><label>Data de nascimento<input name="nascimento" required placeholder="dd/mm/aaaa" autocomplete="bday"></label><button class="botao" type="submit">Entrar no portal</button></form>
+<form class="formulario" method="post"><label>CPF<input id="cpf" name="cpf" required inputmode="numeric" maxlength="14" placeholder="000.000.000-00" autocomplete="username"></label><label>Data de nascimento<input id="nascimento" name="nascimento" required inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="bday"></label><button class="botao" type="submit">Entrar no portal</button></form>
 <p class="nota">Primeiro acesso? Use os mesmos CPF e data de nascimento cadastrados na Arena.</p>
+<script>
+const cpf=document.querySelector('#cpf'),nascimento=document.querySelector('#nascimento');
+cpf.addEventListener('input',()=>{let v=cpf.value.replace(/\D/g,'').slice(0,11);cpf.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2')});
+nascimento.addEventListener('input',()=>{let v=nascimento.value.replace(/\D/g,'').slice(0,8);nascimento.value=v.replace(/(\d{2})(\d)/,'$1/$2').replace(/(\d{2})(\d)/,'$1/$2')});
+</script>
 {% endblock %}
