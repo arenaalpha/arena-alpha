@@ -1,6 +1,11 @@
 """Portal web publico da Arena Alpha."""
 import os
+import json
+import hmac
+import hashlib
 from datetime import date, datetime
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
@@ -13,6 +18,35 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+
+def encaminhar_para_banco_local(tipo, dados):
+    """Envia um registro do portal hospedado ao conector em execucao no PC."""
+    destino = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/")
+    segredo = os.environ.get("SYNC_SECRET", "")
+    if not destino:
+        return False
+    if not segredo:
+        raise ValueError("O conector local ainda nao foi configurado.")
+    corpo = json.dumps({"tipo": tipo, "dados": dados}, ensure_ascii=False).encode("utf-8")
+    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    requisicao = Request(
+        f"{destino}/registrar", data=corpo, method="POST",
+        headers={"Content-Type": "application/json", "X-Arena-Signature": assinatura},
+    )
+    try:
+        with urlopen(requisicao, timeout=12) as resposta:
+            if resposta.status != 201:
+                raise ValueError("O banco local recusou a solicitacao.")
+    except HTTPError as erro:
+        try:
+            detalhe = json.loads(erro.read().decode("utf-8")).get("erro", "")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            detalhe = ""
+        raise ValueError(detalhe or "O banco local recusou a solicitacao.")
+    except (URLError, TimeoutError):
+        raise ValueError("A Arena esta temporariamente sem conexao com o banco. Tente novamente em alguns minutos.")
+    return True
 
 
 def data_do_formulario(valor):
@@ -93,7 +127,9 @@ def aulas():
             return redirect(url_for("aulas"))
         try:
             data = data_do_formulario(request.form["data"])
-            AulasExperimentais().agendar(request.form.get("nome", ""), request.form.get("telefone", ""), request.form.get("esporte", ""), data, request.form.get("horario", ""))
+            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": request.form.get("esporte", ""), "data": data, "horario": request.form.get("horario", "")}
+            if not encaminhar_para_banco_local("aula", dados):
+                AulasExperimentais().agendar(**dados)
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
@@ -109,7 +145,9 @@ def locacao():
             return redirect(url_for("locacao"))
         try:
             data = data_do_formulario(request.form["data"])
-            Agenda().reservar_locacao(request.form.get("nome", ""), request.form.get("telefone", ""), data, request.form.get("tipo", ""), request.form.get("horario", ""), request.form.get("duracao", ""))
+            dados = {"cliente": request.form.get("nome", ""), "whatsapp": request.form.get("telefone", ""), "data": data, "tipo_locacao": request.form.get("tipo", ""), "horario": request.form.get("horario", ""), "duracao_horas": request.form.get("duracao", "")}
+            if not encaminhar_para_banco_local("locacao", dados):
+                Agenda().reservar_locacao(**dados)
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
@@ -125,7 +163,9 @@ def eventos():
             return redirect(url_for("eventos"))
         try:
             data = data_do_formulario(request.form["data"])
-            Agenda().reservar_locacao(request.form.get("nome", ""), request.form.get("telefone", ""), data, "Evento - R$ 300,00 (09h as 22h)")
+            dados = {"cliente": request.form.get("nome", ""), "whatsapp": request.form.get("telefone", ""), "data": data, "tipo_locacao": "Evento - R$ 300,00 (09h as 22h)", "horario": "", "duracao_horas": ""}
+            if not encaminhar_para_banco_local("locacao", dados):
+                Agenda().reservar_locacao(**dados)
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
