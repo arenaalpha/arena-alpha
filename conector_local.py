@@ -7,7 +7,7 @@ import unicodedata
 
 from flask import Flask, jsonify, request
 
-from database.banco import criar_tabelas
+from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
 from modules.aulas_experimentais import AulasExperimentais
 from modules.turmas import Turmas
@@ -54,10 +54,11 @@ def aluno_portal():
         return jsonify(erro="Assinatura invalida."), 401
     dados = request.get_json(silent=True) or {}
     cpf = "".join(c for c in dados.get("cpf", "") if c.isdigit())
-    nascimento = (dados.get("nascimento") or "").strip()
+    if len(cpf) != 11:
+        return jsonify(erro="CPF inválido."), 422
     with conectar() as banco:
         alunos = banco.execute("SELECT * FROM alunos WHERE cpf IS NOT NULL").fetchall()
-        aluno = next((item for item in alunos if "".join(c for c in (item["cpf"] or "") if c.isdigit()) == cpf and (item["data_nascimento"] or "").strip() == nascimento), None)
+        aluno = next((item for item in alunos if "".join(c for c in (item["cpf"] or "") if c.isdigit()) == cpf), None)
         if aluno is None:
             return jsonify(erro="Aluno nao encontrado."), 404
         pagamentos = banco.execute("SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC", (aluno["id"], aluno["nome"])).fetchall()

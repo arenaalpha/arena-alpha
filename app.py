@@ -64,11 +64,11 @@ def turmas_abertas():
         return []
 
 
-def consultar_aluno_local(cpf, nascimento):
+def consultar_aluno_local(cpf):
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino:
         return None
-    corpo = json.dumps({"cpf": cpf, "nascimento": nascimento}).encode("utf-8")
+    corpo = json.dumps({"cpf": cpf}).encode("utf-8")
     assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
     requisicao = Request(f"{destino}/aluno-portal", data=corpo, method="POST", headers={"Content-Type":"application/json", "X-Arena-Signature":assinatura})
     try:
@@ -114,11 +114,10 @@ def inicio():
 def portal():
     if request.method == "POST":
         cpf = somente_numeros(request.form.get("cpf"))
-        nascimento = request.form.get("nascimento", "").strip()
-        if not cpf or not nascimento:
-            flash("Informe seu CPF e sua data de nascimento.", "erro")
+        if len(cpf) != 11:
+            flash("Informe um CPF válido com 11 números.", "erro")
         else:
-            resposta_local = consultar_aluno_local(cpf, nascimento)
+            resposta_local = consultar_aluno_local(cpf)
             if resposta_local:
                 session.clear()
                 session["aluno_portal"] = resposta_local["aluno"]
@@ -126,7 +125,7 @@ def portal():
                 return redirect(url_for("meu_portal"))
             with conectar() as banco:
                 alunos = banco.execute("SELECT * FROM alunos WHERE cpf IS NOT NULL").fetchall()
-                aluno = next((item for item in alunos if somente_numeros(item["cpf"]) == cpf and (item["data_nascimento"] or "").strip() == nascimento), None)
+                aluno = next((item for item in alunos if somente_numeros(item["cpf"]) == cpf), None)
                 if aluno:
                     session.clear()
                     session["aluno_portal_id"] = aluno["id"]
