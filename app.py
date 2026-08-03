@@ -125,7 +125,7 @@ def meu_portal():
                WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC""",
             (aluno["id"], aluno["nome"]),
         ).fetchall()
-    return render_template("portal_conta.html", aluno=aluno, pagamentos=pagamentos)
+    return render_template("portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=turmas_abertas())
 
 
 @app.post("/portal/sair")
