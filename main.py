@@ -12,6 +12,7 @@ from modules.alunos import Alunos
 from modules.backup import Backup
 from modules.dashboard import Dashboard
 from modules.financeiro import Financeiro
+from modules.modalidades import Modalidades
 from modules.pagamentos import Pagamentos
 from modules.permissoes import Permissoes
 from modules.professores import Professores
@@ -974,7 +975,7 @@ class ArenaAlpha(ctk.CTk):
         painel.pack(fill="both", expand=True)
         ctk.CTkLabel(painel, text="Excluir cadastro", font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=22, pady=(20, 4))
         ctk.CTkLabel(painel, text="Escolha o tipo de registro e depois selecione o item a excluir.", font=("Segoe UI", 12), text_color=("#5B7280", "#ABC6D2")).pack(anchor="w", padx=22, pady=(0, 12))
-        tipos = {"Aluno": (Alunos(), "nome"), "Turma": (Turmas(), "nome"), "Professor": (Professores(), "nome"), "Pagamento recebido": (Pagamentos(), "aluno"), "Despesa": (Financeiro(), "descricao")}
+        tipos = {"Aluno": (Alunos(), "nome"), "Turma": (Turmas(), "nome"), "Professor": (Professores(), "nome"), "Modalidade": (Modalidades(), "nome"), "Pagamento recebido": (Pagamentos(), "aluno"), "Despesa": (Financeiro(), "descricao")}
         tipo_var = ctk.StringVar(value="Aluno")
         item_var = ctk.StringVar(value="Selecione um registro")
         menu_tipo = ctk.CTkOptionMenu(painel, values=list(tipos), variable=tipo_var, height=36, fg_color=self.PRIMARIA, button_color="#0891B2")
