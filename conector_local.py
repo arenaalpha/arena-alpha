@@ -63,11 +63,31 @@ def aluno_portal():
             return jsonify(erro="Aluno nao encontrado."), 404
         pagamentos = banco.execute("SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC", (aluno["id"], aluno["nome"])).fetchall()
     campos = ("id", "nome", "esporte", "frequencia", "valor_plano", "dia_vencimento")
-    return jsonify(aluno={campo: aluno[campo] for campo in campos}, pagamentos=[dict(item) for item in pagamentos])
+    return jsonify(aluno={campo: aluno[campo] for campo in campos}, pagamentos=[dict(item) for item in pagamentos], aulas=aulas_matriculadas(aluno["id"]))
 
 
 def normalizar(texto):
     return "".join(c for c in unicodedata.normalize("NFD", (texto or "").lower()) if unicodedata.category(c) != "Mn")
+
+
+def aulas_matriculadas(aluno_id):
+    dias = {"segunda-feira": 0, "terca-feira": 1, "quarta-feira": 2, "quinta-feira": 3, "sexta-feira": 4, "sabado": 5, "domingo": 6}
+    hoje, resultado = date.today(), []
+    with conectar() as banco:
+        turmas = banco.execute(
+            """SELECT t.*, m.dia_treino FROM matriculas_turma m
+               JOIN turmas t ON t.id = m.turma_id WHERE m.aluno_id = ?""", (aluno_id,)
+        ).fetchall()
+    for turma in turmas:
+        dias_turma = [turma["dia_semana"], turma["dia_semana_2"]]
+        if turma["dia_treino"] != "Todos os dias da turma":
+            dias_turma = [turma["dia_treino"]]
+        proximos = [dias[dia] for dia in map(normalizar, dias_turma) if dia in dias]
+        if not proximos:
+            continue
+        proxima = hoje + timedelta(days=min((dia - hoje.weekday()) % 7 for dia in proximos))
+        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": turma["status_aula"] or "Normal", "aviso_aula": turma["aviso_aula"] or ""})
+    return resultado
 
 
 @app.get("/turmas-abertas")

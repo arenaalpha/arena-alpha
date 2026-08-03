@@ -4,7 +4,7 @@ import calendar
 import json
 import hmac
 import hashlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -111,6 +111,27 @@ def tem_desconto_volei(aluno):
     return "volei" in (esporte or "").lower().replace("ô", "o")
 
 
+def aulas_matriculadas_local(aluno_id):
+    """Lista exclusivamente as turmas vinculadas ao aluno no sistema local."""
+    dias = {"Segunda-feira": 0, "Terca-feira": 1, "Quarta-feira": 2, "Quinta-feira": 3, "Sexta-feira": 4, "Sabado": 5, "Domingo": 6}
+    hoje, resultado = date.today(), []
+    with conectar() as banco:
+        turmas = banco.execute(
+            """SELECT t.*, m.dia_treino FROM matriculas_turma m
+               JOIN turmas t ON t.id = m.turma_id WHERE m.aluno_id = ?""", (aluno_id,)
+        ).fetchall()
+    for turma in turmas:
+        dias_turma = [turma["dia_semana"], turma["dia_semana_2"]]
+        if turma["dia_treino"] != "Todos os dias da turma":
+            dias_turma = [turma["dia_treino"]]
+        proximos = [dias[dia] for dia in dias_turma if dia in dias]
+        if not proximos:
+            continue
+        proxima = hoje + timedelta(days=min((dia - hoje.weekday()) % 7 for dia in proximos))
+        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": turma["status_aula"] or "Normal", "aviso_aula": turma["aviso_aula"] or ""})
+    return resultado
+
+
 def aluno_do_portal():
     aluno_sessao = session.get("aluno_portal")
     if aluno_sessao:
@@ -147,6 +168,7 @@ def portal():
                 session.clear()
                 session["aluno_portal"] = resposta_local["aluno"]
                 session["pagamentos_portal"] = resposta_local["pagamentos"]
+                session["aulas_portal"] = resposta_local.get("aulas", [])
                 return redirect(url_for("meu_portal"))
             with conectar() as banco:
                 alunos = banco.execute("SELECT * FROM alunos WHERE cpf IS NOT NULL").fetchall()
@@ -174,8 +196,11 @@ def meu_portal():
                    WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC""",
                 (aluno["id"], aluno["nome"]),
             ).fetchall()
+    aulas = session.get("aulas_portal")
+    if aulas is None:
+        aulas = aulas_matriculadas_local(aluno["id"])
     return render_template(
-        "portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=turmas_abertas(),
+        "portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=aulas,
         situacao_pagamento=situacao_pagamento_portal(aluno, pagamentos), desconto_volei=tem_desconto_volei(aluno),
     )
 
