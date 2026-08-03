@@ -232,7 +232,7 @@ def portal():
                 if aluno:
                     session.clear()
                     session["aluno_portal_id"] = aluno["id"]
-                    banco.execute("INSERT OR REPLACE INTO portal_acessos (aluno_id, ultimo_acesso) VALUES (?, ?)", (aluno["id"], datetime.now().isoformat(timespec="seconds")))
+                    banco.execute("INSERT INTO portal_acessos (aluno_id, ultimo_acesso) VALUES (?, ?) ON CONFLICT (aluno_id) DO UPDATE SET ultimo_acesso = EXCLUDED.ultimo_acesso", (aluno["id"], datetime.now().isoformat(timespec="seconds")))
                     return redirect(url_for("meu_portal"))
             flash("Não encontramos um aluno com esses dados. Peça à Arena para conferir seu cadastro.", "erro")
     return render_template("portal_login.html")

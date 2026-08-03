@@ -24,7 +24,7 @@ class Permissoes:
         valor = f"{salt.hex()}:{digest.hex()}"
         with conectar() as banco:
             banco.execute(
-                "INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (?, ?)",
+                "INSERT INTO configuracoes (chave, valor) VALUES (?, ?) ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor",
                 (self.CHAVE, valor),
             )
 
