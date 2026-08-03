@@ -64,6 +64,20 @@ def turmas_abertas():
         return []
 
 
+def consultar_aluno_local(cpf, nascimento):
+    destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
+    if not destino:
+        return None
+    corpo = json.dumps({"cpf": cpf, "nascimento": nascimento}).encode("utf-8")
+    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    requisicao = Request(f"{destino}/aluno-portal", data=corpo, method="POST", headers={"Content-Type":"application/json", "X-Arena-Signature":assinatura})
+    try:
+        with urlopen(requisicao, timeout=10) as resposta:
+            return json.loads(resposta.read().decode("utf-8"))
+    except (URLError, HTTPError, json.JSONDecodeError):
+        return None
+
+
 def data_do_formulario(valor):
     return datetime.strptime(valor, "%Y-%m-%d").strftime("%d/%m/%Y")
 
@@ -73,6 +87,9 @@ def somente_numeros(valor):
 
 
 def aluno_do_portal():
+    aluno_sessao = session.get("aluno_portal")
+    if aluno_sessao:
+        return aluno_sessao
     identificador = session.get("aluno_portal_id")
     if not identificador:
         return None
@@ -101,6 +118,12 @@ def portal():
         if not cpf or not nascimento:
             flash("Informe seu CPF e sua data de nascimento.", "erro")
         else:
+            resposta_local = consultar_aluno_local(cpf, nascimento)
+            if resposta_local:
+                session.clear()
+                session["aluno_portal"] = resposta_local["aluno"]
+                session["pagamentos_portal"] = resposta_local["pagamentos"]
+                return redirect(url_for("meu_portal"))
             with conectar() as banco:
                 alunos = banco.execute("SELECT * FROM alunos WHERE cpf IS NOT NULL").fetchall()
                 aluno = next((item for item in alunos if somente_numeros(item["cpf"]) == cpf and (item["data_nascimento"] or "").strip() == nascimento), None)
@@ -119,12 +142,14 @@ def meu_portal():
     if not aluno:
         flash("Entre para acessar sua conta.", "erro")
         return redirect(url_for("portal"))
-    with conectar() as banco:
-        pagamentos = banco.execute(
-            """SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos
-               WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC""",
-            (aluno["id"], aluno["nome"]),
-        ).fetchall()
+    pagamentos = session.get("pagamentos_portal")
+    if pagamentos is None:
+        with conectar() as banco:
+            pagamentos = banco.execute(
+                """SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos
+                   WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC""",
+                (aluno["id"], aluno["nome"]),
+            ).fetchall()
     return render_template("portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=turmas_abertas())
 
 

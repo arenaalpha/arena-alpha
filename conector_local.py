@@ -45,6 +45,26 @@ def registrar():
     return jsonify(status="registrado"), 201
 
 
+@app.post("/aluno-portal")
+def aluno_portal():
+    corpo = request.get_data()
+    assinatura = request.headers.get("X-Arena-Signature", "")
+    esperada = hmac.new(SEGREDO.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    if not SEGREDO or not hmac.compare_digest(assinatura, esperada):
+        return jsonify(erro="Assinatura invalida."), 401
+    dados = request.get_json(silent=True) or {}
+    cpf = "".join(c for c in dados.get("cpf", "") if c.isdigit())
+    nascimento = (dados.get("nascimento") or "").strip()
+    with conectar() as banco:
+        alunos = banco.execute("SELECT * FROM alunos WHERE cpf IS NOT NULL").fetchall()
+        aluno = next((item for item in alunos if "".join(c for c in (item["cpf"] or "") if c.isdigit()) == cpf and (item["data_nascimento"] or "").strip() == nascimento), None)
+        if aluno is None:
+            return jsonify(erro="Aluno nao encontrado."), 404
+        pagamentos = banco.execute("SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC", (aluno["id"], aluno["nome"])).fetchall()
+    campos = ("id", "nome", "esporte", "frequencia", "valor_plano", "dia_vencimento")
+    return jsonify(aluno={campo: aluno[campo] for campo in campos}, pagamentos=[dict(item) for item in pagamentos])
+
+
 def normalizar(texto):
     return "".join(c for c in unicodedata.normalize("NFD", (texto or "").lower()) if unicodedata.category(c) != "Mn")
 
