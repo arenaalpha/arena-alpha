@@ -113,6 +113,12 @@ def admin_acao():
         elif acao == "pagamento":
             resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), dados["data_pagamento"])
             mensagem = f"Pagamento registrado: {resultado['status']}."
+        elif acao == "limpar_experimentais":
+            AulasExperimentais().limpar_historico()
+            mensagem = "Historico de aulas experimentais apagado."
+        elif acao == "limpar_reservas":
+            Agenda().limpar_historico()
+            mensagem = "Historico de reservas da quadra apagado."
         else:
             return jsonify(erro="Ação administrativa inválida."), 400
     except (KeyError, TypeError, ValueError) as erro:
