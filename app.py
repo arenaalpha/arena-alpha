@@ -116,7 +116,7 @@ def consultar_painel_local():
         with conectar() as banco:
             alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
             turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
-            reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
+            reservas = banco.execute("SELECT id, cliente, whatsapp, data, horario, tipo_locacao, valor, status FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
             despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
             experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
@@ -147,6 +147,9 @@ def enviar_acao_admin(acao, dados):
         if acao == "limpar_reservas":
             Agenda().limpar_historico()
             return {"mensagem": "Historico de reservas da quadra apagado."}
+        if acao == "confirmar_reserva":
+            Agenda().confirmar(int(dados["reserva_id"]))
+            return {"mensagem": "Reserva confirmada e adicionada ao calendário."}
         if acao == "excluir_pagamento":
             Pagamentos().excluir(int(dados["pagamento_id"]))
             return {"mensagem": "Pagamento excluido."}
@@ -368,7 +371,7 @@ def painel_admin():
                 if nomes_dias[data_atual.weekday()] in ((turma.get("dia_semana") or "").lower(), (turma.get("dia_semana_2") or "").lower()):
                     itens.append(f"Aula · {turma['horario']} · {turma['nome']}")
             for reserva in painel.get("reservas", []):
-                if reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
+                if reserva.get("status") == "Confirmada" and reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
                     itens.append(f"Reserva · {reserva.get('horario') or '-'} · {reserva.get('cliente')}")
             agenda_mensal[numero] = itens
     return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)

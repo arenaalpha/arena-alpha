@@ -8,12 +8,12 @@ from .base import Repositorio
 
 class Agenda(Repositorio):
     tabela = "agenda"
-    campos = ("quadra", "data", "horario", "cliente", "tipo_locacao", "duracao_horas", "valor", "whatsapp")
+    campos = ("quadra", "data", "horario", "cliente", "tipo_locacao", "duracao_horas", "valor", "whatsapp", "status")
 
     def reservar(self, quadra, data, horario, cliente):
         super().cadastrar(
             quadra=quadra, data=data, horario=horario, cliente=cliente,
-            tipo_locacao="Quadra", duracao_horas=1, valor=40.0, whatsapp="",
+            tipo_locacao="Quadra", duracao_horas=1, valor=40.0, whatsapp="", status="Pendente",
         )
 
     @staticmethod
@@ -97,9 +97,13 @@ class Agenda(Repositorio):
         horario = f"{inicio:%H:%M} as {fim:%H:%M}"
         super().cadastrar(
             quadra="Quadra Principal", data=data, horario=horario, cliente=cliente,
-            tipo_locacao=tipo_locacao, duracao_horas=duracao, valor=valor, whatsapp=whatsapp,
+            tipo_locacao=tipo_locacao, duracao_horas=duracao, valor=valor, whatsapp=whatsapp, status="Pendente",
         )
         return valor, horario
+
+    def confirmar(self, identificador):
+        with conectar() as banco:
+            banco.execute("UPDATE agenda SET status = 'Confirmada' WHERE id = ?", (identificador,))
 
     def limpar_historico(self):
         with conectar() as banco:
