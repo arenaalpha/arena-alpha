@@ -13,6 +13,14 @@ class Turmas(Repositorio):
             raise ValueError("Escolha dois dias da semana diferentes para a turma.")
         super().cadastrar(nome=nome, dia_semana=dia_semana, dia_semana_2=dia_semana_2, horario=horario, professor=professor, modalidade=modalidade)
 
+    def atualizar_status_aula(self, turma_id, status, aviso=""):
+        if status not in ("Normal", "Aula cancelada"):
+            raise ValueError("Status de aula invalido.")
+        if status == "Aula cancelada" and not aviso.strip():
+            raise ValueError("Digite um aviso para o cancelamento.")
+        with conectar() as banco:
+            banco.execute("UPDATE turmas SET status_aula = ?, aviso_aula = ? WHERE id = ?", (status, aviso.strip(), turma_id))
+
     def vincular_aluno(self, aluno_id, turma_id, dia_treino):
         with conectar() as banco:
             aluno = banco.execute("SELECT nome, frequencia FROM alunos WHERE id = ?", (aluno_id,)).fetchone()

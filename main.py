@@ -65,6 +65,7 @@ class ArenaAlpha(ctk.CTk):
         opcoes = [
             ("Inicio", self.mostrar_dashboard),
             ("Inscricao de aluno", self.mostrar_inscricao_aluno),
+            ("Alunos", self.mostrar_alunos),
             ("Aula experimental", self.mostrar_aula_experimental),
             ("Professores", lambda: self.mostrar_formulario("Professores", "Organize a equipe tecnica.", Professores(), [("Nome completo", "nome"), ("Telefone", "telefone"), ("Especialidade", "especialidade")], "cadastrar")),
             ("Quadra", self.mostrar_quadra),
@@ -231,6 +232,15 @@ class ArenaAlpha(ctk.CTk):
             self.mostrar_aula_experimental()
 
         ctk.CTkButton(painel, text="Abrir confirmacao no WhatsApp", command=confirmar_whatsapp, height=40, fg_color="#166534", hover_color="#14532D").pack(fill="x", padx=22, pady=(0, 12))
+        def resetar_historico_aulas():
+            if not aulas:
+                messagebox.showinfo("Historico vazio", "Nao ha aulas experimentais para apagar.")
+                return
+            if messagebox.askyesno("Resetar historico", "Apagar todo o historico de aulas experimentais? Esta acao nao pode ser desfeita."):
+                AulasExperimentais().limpar_historico()
+                messagebox.showinfo("Historico resetado", "O historico de aulas experimentais foi apagado.")
+                self.mostrar_aula_experimental()
+        ctk.CTkButton(painel, text="Resetar historico de aulas", command=resetar_historico_aulas, height=36, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 12))
         lista = ctk.CTkTextbox(painel, height=170, font=("Cascadia Mono", 12), fg_color=("#F6F1E7", "#111111"), corner_radius=10)
         lista.pack(fill="both", expand=True, padx=22, pady=(0, 20))
         texto = "Nenhuma aula experimental agendada." if not aulas else "\n\n".join(
@@ -294,9 +304,8 @@ class ArenaAlpha(ctk.CTk):
                 lista.insert("1.0", "Selecione uma turma para ver os alunos.")
             else:
                 alunos_turma = Turmas().alunos_da_turma(turma["id"])
-                texto = "Nenhum aluno vinculado a esta turma." if not alunos_turma else "\n\n".join(
-                    f"{aluno['nome']}\nWhatsApp: {aluno['whatsapp'] or '-'} | {aluno['esporte']} | {aluno['frequencia']}\nDia de treino: {aluno['dia_treino']}"
-                    for aluno in alunos_turma
+                texto = "Nenhum aluno vinculado a esta turma." if not alunos_turma else "\n".join(
+                    f"• {aluno['nome']}" for aluno in alunos_turma
                 )
                 lista.insert("1.0", texto)
             lista.configure(state="disabled")
@@ -305,6 +314,29 @@ class ArenaAlpha(ctk.CTk):
         for filho in relatorio.winfo_children():
             if isinstance(filho, ctk.CTkOptionMenu):
                 filho.configure(command=carregar_relatorio)
+
+        aviso = ctk.CTkFrame(tela, fg_color=("#FFF7ED", "#3A1F0B"), corner_radius=16)
+        aviso.pack(fill="x", pady=(12, 0))
+        ctk.CTkLabel(aviso, text="Status da aula no Portal do Aluno", font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=22, pady=(18, 8))
+        aviso_turma_var = ctk.StringVar(value="Selecione uma turma")
+        ctk.CTkOptionMenu(aviso, values=list(mapa_turmas) or ["Nenhuma turma cadastrada"], variable=aviso_turma_var, height=36, fg_color=self.PRIMARIA, button_color="#8F5E08").pack(fill="x", padx=22, pady=(0, 8))
+        status_var = ctk.StringVar(value="Normal")
+        ctk.CTkOptionMenu(aviso, values=["Normal", "Aula cancelada"], variable=status_var, height=36, fg_color="#B7790B", button_color="#8F5E08").pack(fill="x", padx=22, pady=(0, 8))
+        texto_aviso = ctk.CTkEntry(aviso, placeholder_text="Aviso para os alunos (ex.: Aula cancelada por chuva)", height=36)
+        texto_aviso.pack(fill="x", padx=22, pady=(0, 10))
+        def salvar_status_aula():
+            turma = mapa_turmas.get(aviso_turma_var.get())
+            if turma is None:
+                messagebox.showwarning("Turma obrigatoria", "Selecione uma turma.")
+                return
+            try:
+                Turmas().atualizar_status_aula(turma["id"], status_var.get(), texto_aviso.get())
+            except ValueError as erro:
+                messagebox.showerror("Status nao atualizado", str(erro))
+                return
+            messagebox.showinfo("Portal atualizado", "O status e o aviso ja podem ser vistos no Portal do Aluno.")
+            self.mostrar_turmas()
+        ctk.CTkButton(aviso, text="Salvar status da aula", command=salvar_status_aula, height=40, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 20))
 
     def mostrar_checkin(self):
         self.limpar()
@@ -475,6 +507,15 @@ class ArenaAlpha(ctk.CTk):
             self.mostrar_locacao()
 
         ctk.CTkButton(painel, text="Registrar locacao", command=salvar_locacao, height=40, fg_color=self.PRIMARIA, hover_color="#0891B2", font=("Segoe UI", 13, "bold")).pack(fill="x", padx=22, pady=(5, 22))
+        def resetar_historico_locacoes():
+            if not Agenda().listar():
+                messagebox.showinfo("Historico vazio", "Nao ha locacoes para apagar.")
+                return
+            if messagebox.askyesno("Resetar historico", "Apagar todo o historico de locacoes da quadra? Esta acao nao pode ser desfeita."):
+                Agenda().limpar_historico()
+                messagebox.showinfo("Historico resetado", "O historico de locacoes foi apagado.")
+                self.mostrar_locacao()
+        ctk.CTkButton(painel, text="Resetar historico de locacoes", command=resetar_historico_locacoes, height=36, fg_color="#B91C1C", hover_color="#991B1B").pack(fill="x", padx=22, pady=(0, 12))
         ctk.CTkLabel(self.conteudo, text="Locacoes recentes", font=("Segoe UI", 18, "bold")).pack(anchor="w", pady=(20, 8))
         lista = ctk.CTkTextbox(self.conteudo, height=170, font=("Cascadia Mono", 12), fg_color=("#FFFFFF", "#163B52"), corner_radius=14)
         lista.pack(fill="both", expand=True)
@@ -485,6 +526,50 @@ class ArenaAlpha(ctk.CTk):
         )
         lista.insert("1.0", texto)
         lista.configure(state="disabled")
+
+    def mostrar_alunos(self):
+        self.limpar()
+        ctk.CTkLabel(self.conteudo, text="Alunos", font=("Segoe UI", 29, "bold"), text_color=("#123147", "#F1FAFE")).pack(anchor="w")
+        ctk.CTkLabel(self.conteudo, text="Consulte todos os dados informados no cadastro inicial.", font=("Segoe UI", 14), text_color=("#5B7280", "#ABC6D2")).pack(anchor="w", pady=(0, 14))
+        alunos = Alunos().listar()
+        mapa = {f"{aluno['id']} - {aluno['nome']}": aluno for aluno in alunos}
+        seletor = ctk.CTkFrame(self.conteudo, fg_color=("#FFFFFF", "#163B52"), corner_radius=16)
+        seletor.pack(fill="x", pady=(0, 12))
+        ctk.CTkLabel(seletor, text="Relatorio individual", font=("Segoe UI", 18, "bold")).pack(anchor="w", padx=22, pady=(18, 8))
+        aluno_var = ctk.StringVar(value="Selecione um aluno")
+        menu = ctk.CTkOptionMenu(seletor, values=list(mapa) or ["Nenhum aluno cadastrado"], variable=aluno_var, height=38, fg_color=self.PRIMARIA, button_color="#8F5E08")
+        menu.pack(fill="x", padx=22, pady=(0, 18))
+        relatorio = ctk.CTkTextbox(self.conteudo, font=("Cascadia Mono", 12), fg_color=("#F6F1E7", "#111111"), corner_radius=14)
+        relatorio.pack(fill="both", expand=True)
+        campos = (
+            ("DADOS PESSOAIS", ("nome", "data_nascimento", "cpf", "telefone", "whatsapp", "endereco", "esporte")),
+            ("PLANO E INSCRICAO", ("frequencia", "valor_plano", "data_inscricao", "dia_vencimento", "modalidade")),
+            ("INFORMACOES ADICIONAIS", ("como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais")),
+            ("RESPONSAVEL", ("menor_idade", "responsavel_nome", "responsavel_cpf", "responsavel_parentesco")),
+            ("AUTORIZACAO", ("autorizacao_imagem",)),
+        )
+        nomes = {"nome":"Nome completo", "data_nascimento":"Data de nascimento", "cpf":"CPF", "telefone":"Telefone", "whatsapp":"WhatsApp", "endereco":"Endereco", "esporte":"Esporte", "frequencia":"Frequencia", "valor_plano":"Valor do plano", "data_inscricao":"Data de inscricao", "dia_vencimento":"Dia de vencimento", "modalidade":"Modalidade", "como_conheceu":"Como conheceu", "restricoes_alimentares":"Restricoes alimentares", "problema_saude":"Problema de saude", "necessidades_especiais":"Necessidades especiais", "menor_idade":"Menor de idade", "responsavel_nome":"Nome do responsavel", "responsavel_cpf":"CPF do responsavel", "responsavel_parentesco":"Parentesco", "autorizacao_imagem":"Uso de imagem e voz"}
+
+        def carregar_relatorio(valor=None):
+            aluno = mapa.get(aluno_var.get())
+            relatorio.configure(state="normal")
+            relatorio.delete("1.0", "end")
+            if aluno is None:
+                relatorio.insert("1.0", "Selecione um aluno para ver o relatorio completo.")
+            else:
+                linhas = [f"RELATORIO DO ALUNO #{aluno['id']}", "=" * 48]
+                for titulo, chaves in campos:
+                    linhas.extend(("", titulo, "-" * len(titulo)))
+                    for chave in chaves:
+                        valor = aluno[chave] if aluno[chave] not in (None, "") else "-"
+                        if chave == "valor_plano" and valor != "-":
+                            valor = f"R$ {float(valor):.2f}"
+                        linhas.append(f"{nomes[chave]}: {valor}")
+                relatorio.insert("1.0", "\n".join(linhas))
+            relatorio.configure(state="disabled")
+
+        menu.configure(command=carregar_relatorio)
+        carregar_relatorio()
 
     def mostrar_inscricao_aluno(self):
         self.limpar()

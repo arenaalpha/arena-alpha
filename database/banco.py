@@ -96,6 +96,10 @@ def criar_tabelas() -> None:
             banco.execute("ALTER TABLE turmas ADD COLUMN dia_semana TEXT")
         if "dia_semana_2" not in colunas_turmas:
             banco.execute("ALTER TABLE turmas ADD COLUMN dia_semana_2 TEXT")
+        if "status_aula" not in colunas_turmas:
+            banco.execute("ALTER TABLE turmas ADD COLUMN status_aula TEXT DEFAULT 'Normal'")
+        if "aviso_aula" not in colunas_turmas:
+            banco.execute("ALTER TABLE turmas ADD COLUMN aviso_aula TEXT")
 
         colunas_agenda = {
             linha["name"] for linha in banco.execute("PRAGMA table_info(agenda)").fetchall()

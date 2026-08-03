@@ -68,7 +68,7 @@ def listar_turmas_abertas():
         if not alvos:
             continue
         proxima = hoje + timedelta(days=min((dia - hoje.weekday()) % 7 for dia in alvos))
-        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y")})
+        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": turma["status_aula"] or "Normal", "aviso_aula": turma["aviso_aula"] or ""})
     return jsonify(resultado)
 
 
