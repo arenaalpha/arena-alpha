@@ -3,9 +3,14 @@ import hashlib
 import hmac
 import os
 from datetime import date, timedelta
+from pathlib import Path
 import unicodedata
 
 from flask import Flask, jsonify, request
+
+# O conector sempre atende o banco principal do programa, mesmo se o Windows
+# tiver outra variável DATABASE_PATH definida em segundo plano.
+os.environ["DATABASE_PATH"] = str(Path(__file__).resolve().parent / "arena_alpha.db")
 
 from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
