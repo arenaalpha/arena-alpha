@@ -132,6 +132,17 @@ def aulas_matriculadas_local(aluno_id):
     return resultado
 
 
+def contato_da_reserva(formulario):
+    """Usa os dados do cadastro quando a reserva é feita pelo Portal do Aluno."""
+    aluno = aluno_do_portal()
+    if not aluno:
+        return {"nome": formulario.get("nome", "").strip(), "telefone": formulario.get("telefone", "").strip()}
+    whatsapp = aluno.get("whatsapp", "") if isinstance(aluno, dict) else aluno["whatsapp"]
+    if not whatsapp:
+        raise ValueError("O WhatsApp não está cadastrado. Peça à Arena para atualizar seu cadastro.")
+    return {"nome": aluno["nome"], "telefone": whatsapp}
+
+
 def aluno_do_portal():
     aluno_sessao = session.get("aluno_portal")
     if aluno_sessao:
@@ -141,7 +152,7 @@ def aluno_do_portal():
         return None
     with conectar() as banco:
         return banco.execute(
-            "SELECT id, nome, esporte, frequencia, valor_plano, dia_vencimento FROM alunos WHERE id = ?",
+            "SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos WHERE id = ?",
             (identificador,),
         ).fetchone()
 
@@ -240,7 +251,8 @@ def locacao():
             return redirect(url_for("locacao"))
         try:
             data = data_do_formulario(request.form["data"])
-            dados = {"cliente": request.form.get("nome", ""), "whatsapp": request.form.get("telefone", ""), "data": data, "tipo_locacao": request.form.get("tipo", ""), "horario": request.form.get("horario", ""), "duracao_horas": request.form.get("duracao", "")}
+            contato = contato_da_reserva(request.form)
+            dados = {"cliente": contato["nome"], "whatsapp": contato["telefone"], "data": data, "tipo_locacao": request.form.get("tipo", ""), "horario": request.form.get("horario", ""), "duracao_horas": request.form.get("duracao", "")}
             if not encaminhar_para_banco_local("locacao", dados):
                 Agenda().reservar_locacao(**dados)
         except (KeyError, ValueError) as erro:
@@ -248,7 +260,7 @@ def locacao():
         else:
             flash("Solicitação recebida! A reserva será confirmada pelo WhatsApp.", "sucesso")
             return redirect(url_for("locacao"))
-    return render_template("locacao.html", hoje=date.today().isoformat())
+    return render_template("locacao.html", hoje=date.today().isoformat(), aluno_portal=aluno_do_portal())
 
 
 @app.route("/eventos", methods=["GET", "POST"])
@@ -258,7 +270,8 @@ def eventos():
             return redirect(url_for("eventos"))
         try:
             data = data_do_formulario(request.form["data"])
-            dados = {"cliente": request.form.get("nome", ""), "whatsapp": request.form.get("telefone", ""), "data": data, "tipo_locacao": "Evento - R$ 300,00 (09h as 22h)", "horario": "", "duracao_horas": ""}
+            contato = contato_da_reserva(request.form)
+            dados = {"cliente": contato["nome"], "whatsapp": contato["telefone"], "data": data, "tipo_locacao": "Evento - R$ 300,00 (09h as 22h)", "horario": "", "duracao_horas": ""}
             if not encaminhar_para_banco_local("locacao", dados):
                 Agenda().reservar_locacao(**dados)
         except (KeyError, ValueError) as erro:
@@ -266,7 +279,7 @@ def eventos():
         else:
             flash("Sua reserva entrou na fila. Aguarde a confirmação da Arena pelo WhatsApp.", "sucesso")
             return redirect(url_for("eventos"))
-    return render_template("eventos.html", hoje=date.today().isoformat())
+    return render_template("eventos.html", hoje=date.today().isoformat(), aluno_portal=aluno_do_portal())
 
 
 if __name__ == "__main__":

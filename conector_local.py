@@ -62,7 +62,7 @@ def aluno_portal():
         if aluno is None:
             return jsonify(erro="Aluno nao encontrado."), 404
         pagamentos = banco.execute("SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC", (aluno["id"], aluno["nome"])).fetchall()
-    campos = ("id", "nome", "esporte", "frequencia", "valor_plano", "dia_vencimento")
+    campos = ("id", "nome", "whatsapp", "esporte", "frequencia", "valor_plano", "dia_vencimento")
     return jsonify(aluno={campo: aluno[campo] for campo in campos}, pagamentos=[dict(item) for item in pagamentos], aulas=aulas_matriculadas(aluno["id"]))
 
 
