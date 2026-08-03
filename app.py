@@ -258,10 +258,21 @@ def contato_da_reserva(formulario):
 
 
 def aluno_do_portal():
+    identificador = session.get("aluno_portal_id")
+    # No banco online, a sessao guarda apenas o identificador. Assim, qualquer
+    # alteracao feita no painel aparece imediatamente no Portal do Aluno.
+    if banco_online():
+        if not identificador:
+            return None
+        with conectar() as banco:
+            return banco.execute(
+                "SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos WHERE id = ?",
+                (identificador,),
+            ).fetchone()
+
     aluno_sessao = session.get("aluno_portal")
     if aluno_sessao:
         return aluno_sessao
-    identificador = session.get("aluno_portal_id")
     if not identificador:
         return None
     with conectar() as banco:
@@ -298,7 +309,7 @@ def portal():
         if len(cpf) != 11:
             flash("Informe um CPF válido com 11 números.", "erro")
         else:
-            resposta_local = consultar_aluno_local(cpf)
+            resposta_local = None if banco_online() else consultar_aluno_local(cpf)
             if resposta_local:
                 session.clear()
                 session["aluno_portal"] = resposta_local["aluno"]
@@ -381,9 +392,10 @@ def sair_admin():
 def meu_portal():
     aluno = aluno_do_portal()
     if not aluno:
+        session.clear()
         flash("Entre para acessar sua conta.", "erro")
         return redirect(url_for("portal"))
-    pagamentos = session.get("pagamentos_portal")
+    pagamentos = None if banco_online() else session.get("pagamentos_portal")
     if pagamentos is None:
         with conectar() as banco:
             pagamentos = banco.execute(
@@ -391,7 +403,7 @@ def meu_portal():
                    WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC""",
                 (aluno["id"], aluno["nome"]),
             ).fetchall()
-    aulas = session.get("aulas_portal")
+    aulas = None if banco_online() else session.get("aulas_portal")
     if aulas is None:
         aulas = aulas_matriculadas_local(aluno["id"])
     return render_template(
