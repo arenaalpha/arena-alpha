@@ -15,6 +15,8 @@ from werkzeug.security import check_password_hash
 from database.banco import conectar, criar_tabelas
 from modules.agenda import Agenda
 from modules.aulas_experimentais import AulasExperimentais
+from modules.alunos import Alunos
+from modules.pagamentos import Pagamentos
 from modules.turmas import Turmas
 
 
@@ -24,8 +26,20 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 
+def banco_online():
+    return os.environ.get("DATABASE_URL", "").startswith(("postgres://", "postgresql://"))
+
+
 def encaminhar_para_banco_local(tipo, dados):
     """Envia um registro do portal hospedado ao conector em execucao no PC."""
+    if banco_online():
+        if tipo == "aula":
+            AulasExperimentais().agendar(**dados)
+        elif tipo == "locacao":
+            Agenda().reservar_locacao(**dados)
+        else:
+            raise ValueError("Tipo de registro invalido.")
+        return True
     destino = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/")
     segredo = os.environ.get("SYNC_SECRET", "")
     if not destino:
@@ -54,6 +68,20 @@ def encaminhar_para_banco_local(tipo, dados):
 
 
 def turmas_abertas():
+    if banco_online():
+        dias = {"segunda-feira": 0, "terca-feira": 1, "quarta-feira": 2, "quinta-feira": 3, "sexta-feira": 4, "sabado": 5, "domingo": 6}
+        hoje, resultado = date.today(), []
+        for turma in Turmas().listar():
+            modalidade = (turma["modalidade"] or "").lower().replace("ô", "o")
+            nomes_dias = [(turma["dia_semana"] or "").lower().replace("ç", "c").replace("á", "a"), (turma["dia_semana_2"] or "").lower().replace("ç", "c").replace("á", "a")]
+            indices = [dias[nome] for nome in nomes_dias if nome in dias]
+            if "volei" in modalidade and "fut" not in modalidade:
+                indices = [0] if 0 in indices else []
+            if not indices:
+                continue
+            proxima = hoje + timedelta(days=min((item - hoje.weekday()) % 7 for item in indices))
+            resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": turma["status_aula"] or "Normal", "aviso_aula": turma["aviso_aula"] or ""})
+        return resultado
     destino = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/")
     segredo = os.environ.get("SYNC_SECRET", "")
     if not destino:
@@ -82,6 +110,14 @@ def consultar_aluno_local(cpf):
 
 
 def consultar_painel_local():
+    if banco_online():
+        with conectar() as banco:
+            alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
+            turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
+            reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
+            pagamentos = banco.execute("SELECT aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
+            experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "experimentais": [dict(item) for item in experimentais]}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -96,6 +132,37 @@ def consultar_painel_local():
 
 
 def enviar_acao_admin(acao, dados):
+    if banco_online():
+        if acao == "limpar_experimentais":
+            AulasExperimentais().limpar_historico()
+            return {"mensagem": "Historico de aulas experimentais apagado."}
+        if acao == "limpar_reservas":
+            Agenda().limpar_historico()
+            return {"mensagem": "Historico de reservas da quadra apagado."}
+        if acao == "status_turma":
+            Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
+            return {"mensagem": "Status da aula atualizado."}
+        if acao == "pagamento":
+            resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), dados["data_pagamento"])
+            return {"mensagem": f"Pagamento registrado: {resultado['status']}."}
+        if acao == "nova_turma":
+            Turmas().criar(dados["nome"], dados["dia_semana"], dados["dia_semana_2"], dados["horario"], dados.get("professor", ""), dados["modalidade"])
+            return {"mensagem": "Turma criada."}
+        if acao == "novo_aluno":
+            obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
+            if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
+                raise ValueError("Preencha todos os campos obrigatorios do cadastro.")
+            planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
+            valor = planos.get(dados["esporte"], {}).get(dados["frequencia"])
+            if valor is None: raise ValueError("Escolha uma frequencia valida para o esporte.")
+            valores = {campo: str(dados.get(campo, "")).strip() for campo in Alunos.campos}
+            valores.update(telefone=dados["whatsapp"], whatsapp=dados["whatsapp"], modalidade=dados["esporte"], valor_plano=valor, data_inscricao=date.today().isoformat(), dia_vencimento=date.today().day)
+            aluno_id = Alunos().cadastrar(**valores)
+            turma = next((item for item in Turmas().listar() if item["id"] == int(dados["turma_id"])), None)
+            if turma is None: raise ValueError("Turma selecionada nao encontrada.")
+            Turmas().vincular_aluno(aluno_id, turma["id"], turma["dia_semana"] if dados["frequencia"].startswith("1x") else "Todos os dias da turma")
+            return {"mensagem": "Aluno cadastrado."}
+        raise ValueError("Acao administrativa invalida.")
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         raise ValueError("O computador da Arena está sem conexão.")
