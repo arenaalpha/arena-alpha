@@ -71,11 +71,27 @@ def consultar_aluno_local(cpf):
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino:
         return None
+    corpo = json.dumps({"cpf": cpf}).encode("utf-8")
+    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    requisicao = Request(f"{destino}/aluno-portal", data=corpo, method="POST", headers={"Content-Type":"application/json", "X-Arena-Signature":assinatura})
+    try:
+        with urlopen(requisicao, timeout=10) as resposta:
+            return json.loads(resposta.read().decode("utf-8"))
+    except (URLError, HTTPError, json.JSONDecodeError):
+        return None
 
 
 def consultar_painel_local():
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
+        return None
+    corpo = b""
+    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
+    requisicao = Request(f"{destino}/painel-admin", data=corpo, method="POST", headers={"X-Arena-Signature": assinatura})
+    try:
+        with urlopen(requisicao, timeout=12) as resposta:
+            return json.loads(resposta.read().decode("utf-8"))
+    except (URLError, HTTPError, json.JSONDecodeError):
         return None
 
 
@@ -96,22 +112,6 @@ def enviar_acao_admin(acao, dados):
             raise ValueError("Ação recusada pelo sistema local.")
     except (URLError, TimeoutError):
         raise ValueError("O computador da Arena está sem conexão.")
-    corpo = b""
-    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
-    requisicao = Request(f"{destino}/painel-admin", data=corpo, method="POST", headers={"X-Arena-Signature": assinatura})
-    try:
-        with urlopen(requisicao, timeout=12) as resposta:
-            return json.loads(resposta.read().decode("utf-8"))
-    except (URLError, HTTPError, json.JSONDecodeError):
-        return None
-    corpo = json.dumps({"cpf": cpf}).encode("utf-8")
-    assinatura = hmac.new(segredo.encode("utf-8"), corpo, hashlib.sha256).hexdigest()
-    requisicao = Request(f"{destino}/aluno-portal", data=corpo, method="POST", headers={"Content-Type":"application/json", "X-Arena-Signature":assinatura})
-    try:
-        with urlopen(requisicao, timeout=10) as resposta:
-            return json.loads(resposta.read().decode("utf-8"))
-    except (URLError, HTTPError, json.JSONDecodeError):
-        return None
 
 
 def data_do_formulario(valor):
