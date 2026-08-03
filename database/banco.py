@@ -4,7 +4,20 @@ from pathlib import Path
 
 RAIZ_PROJETO = Path(__file__).resolve().parent.parent
 BANCO = Path(os.environ.get("DATABASE_PATH", RAIZ_PROJETO / "arena_alpha.db"))
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+def _url_do_banco_online():
+    """Lê a conexão atual, inclusive quando o programa foi aberto antes da configuração no Windows."""
+    valor = os.environ.get("DATABASE_URL", "")
+    if valor or os.name != "nt":
+        return valor
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as chave:
+            return winreg.QueryValueEx(chave, "DATABASE_URL")[0] or ""
+    except (FileNotFoundError, OSError):
+        return ""
+
+
+DATABASE_URL = _url_do_banco_online()
 USAR_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
 
