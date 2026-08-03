@@ -9,7 +9,13 @@ class Turmas(Repositorio):
     campos = ("nome", "dia_semana", "dia_semana_2", "horario", "professor", "modalidade")
 
     def criar(self, nome, dia_semana, dia_semana_2, horario, professor, modalidade):
-        if dia_semana == dia_semana_2:
+        dia_semana = (dia_semana or "").strip()
+        dia_semana_2 = (dia_semana_2 or "").strip()
+        if dia_semana_2.lower() in ("não tem segundo dia", "nao tem segundo dia"):
+            dia_semana_2 = ""
+        if not dia_semana:
+            raise ValueError("Escolha o primeiro dia da turma.")
+        if dia_semana_2 and dia_semana == dia_semana_2:
             raise ValueError("Escolha dois dias da semana diferentes para a turma.")
         super().cadastrar(nome=nome, dia_semana=dia_semana, dia_semana_2=dia_semana_2, horario=horario, professor=professor, modalidade=modalidade)
 
