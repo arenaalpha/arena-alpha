@@ -100,9 +100,30 @@ def admin_acao():
     dados, acao = conteudo.get("dados") or {}, conteudo.get("acao")
     try:
         if acao == "novo_aluno":
-            if not dados.get("nome") or not dados.get("whatsapp"):
-                raise ValueError("Informe nome e WhatsApp.")
-            Alunos().cadastrar(nome=dados["nome"], telefone=dados["whatsapp"], whatsapp=dados["whatsapp"], esporte=dados.get("esporte", ""), frequencia=dados.get("frequencia", ""), valor_plano=float(dados.get("valor_plano") or 0), dia_vencimento=int(dados.get("dia_vencimento") or 1), data_inscricao=date.today().strftime("%d/%m/%Y"))
+            obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
+            faltando = [campo.replace("_", " ") for campo in obrigatorios if not str(dados.get(campo, "")).strip()]
+            if faltando:
+                raise ValueError("Preencha: " + ", ".join(faltando) + ".")
+            if dados["menor_idade"] == "Sim":
+                responsavel = ("responsavel_nome", "responsavel_cpf", "responsavel_parentesco")
+                if any(not str(dados.get(campo, "")).strip() for campo in responsavel):
+                    raise ValueError("Informe todos os dados do responsavel do menor.")
+            planos = {
+                "Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25},
+                "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20},
+            }
+            valor_plano = planos.get(dados["esporte"], {}).get(dados["frequencia"])
+            if valor_plano is None:
+                raise ValueError("Escolha uma frequencia valida para o esporte selecionado.")
+            turma_id = int(dados["turma_id"])
+            turma = next((item for item in Turmas().listar() if item["id"] == turma_id), None)
+            if turma is None:
+                raise ValueError("Turma selecionada nao encontrada.")
+            valores = {campo: str(dados.get(campo, "")).strip() for campo in Alunos.campos}
+            valores.update(telefone=dados["whatsapp"].strip(), whatsapp=dados["whatsapp"].strip(), modalidade=dados["esporte"].strip(), valor_plano=valor_plano, data_inscricao=date.today().isoformat(), dia_vencimento=date.today().day)
+            aluno_id = Alunos().cadastrar(**valores)
+            dia_treino = turma["dia_semana"] if dados["frequencia"].startswith("1x") else "Todos os dias da turma"
+            Turmas().vincular_aluno(aluno_id, turma_id, dia_treino)
             mensagem = "Aluno cadastrado."
         elif acao == "nova_turma":
             Turmas().criar(dados["nome"], dados["dia_semana"], dados["dia_semana_2"], dados["horario"], dados.get("professor", ""), dados["modalidade"])
