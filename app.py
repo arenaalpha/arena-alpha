@@ -151,7 +151,7 @@ def enviar_acao_admin(acao, dados):
             Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
             return {"mensagem": "Status da aula atualizado."}
         if acao == "pagamento":
-            resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), dados["data_pagamento"])
+            resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), data_do_formulario(dados["data_pagamento"]))
             return {"mensagem": f"Pagamento registrado: {resultado['status']}."}
         if acao == "nova_turma":
             Turmas().criar(dados["nome"], dados["dia_semana"], dados["dia_semana_2"], dados["horario"], dados.get("professor", ""), dados["modalidade"])

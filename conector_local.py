@@ -133,7 +133,8 @@ def admin_acao():
             Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
             mensagem = "Status da aula atualizado."
         elif acao == "pagamento":
-            resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), dados["data_pagamento"])
+            data_pagamento = date.fromisoformat(dados["data_pagamento"]).strftime("%d/%m/%Y")
+            resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), data_pagamento)
             mensagem = f"Pagamento registrado: {resultado['status']}."
         elif acao == "limpar_experimentais":
             AulasExperimentais().limpar_historico()
