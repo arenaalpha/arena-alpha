@@ -18,8 +18,8 @@ class ResultadoPostgres:
 class ConexaoPostgres:
     def __init__(self):
         import psycopg2
-        from psycopg2.extras import RealDictCursor
-        self.driver, self.cursor_factory = psycopg2, RealDictCursor
+        from psycopg2.extras import DictCursor
+        self.driver, self.cursor_factory = psycopg2, DictCursor
         self.conexao = psycopg2.connect(DATABASE_URL, sslmode="require")
     def execute(self, sql, parametros=()):
         cursor = self.conexao.cursor(cursor_factory=self.cursor_factory)
