@@ -1,4 +1,5 @@
 from .base import Repositorio
+from database.banco import conectar
 
 
 class Alunos(Repositorio):
