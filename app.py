@@ -4,12 +4,13 @@ import calendar
 import json
 import hmac
 import hashlib
+from io import BytesIO
 from functools import wraps
 from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for, send_file
 from werkzeug.security import check_password_hash
 
 from database.banco import conectar, criar_tabelas
@@ -28,6 +29,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
 
 def banco_online():
@@ -486,13 +488,53 @@ def inscricao():
             if valor is None:
                 raise ValueError("Escolha uma frequência válida para o esporte.")
             dados.update(telefone=dados["whatsapp"], modalidade=dados["esporte"], valor_plano=valor, data_inscricao=date.today().isoformat(), dia_vencimento=date.today().day)
-            Inscricoes().criar(dados, int(turma["id"]))
+            inscricao_id = Inscricoes().criar(dados, int(turma["id"]))
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
-            flash("Inscrição recebida! Ela será validada após a confirmação da Arena pelo WhatsApp.", "sucesso")
-            return redirect(url_for("inscricao"))
+            session["inscricao_pagamento_id"] = inscricao_id
+            return redirect(url_for("pagamento_inscricao", inscricao_id=inscricao_id))
     return render_template("inscricao.html", turmas=turmas)
+
+
+@app.route("/inscricao/<int:inscricao_id>/pagamento", methods=["GET", "POST"])
+def pagamento_inscricao(inscricao_id):
+    if session.get("inscricao_pagamento_id") != inscricao_id:
+        flash("Abra o pagamento logo após enviar sua inscrição.", "erro")
+        return redirect(url_for("inscricao"))
+    with conectar() as banco:
+        inscricao = banco.execute("SELECT id, nome, status, comprovante_status FROM inscricoes_portal WHERE id = ?", (inscricao_id,)).fetchone()
+    if inscricao is None or inscricao["status"] != "Pendente":
+        flash("Esta inscrição não está mais disponível para pagamento.", "erro")
+        return redirect(url_for("inscricao"))
+    if request.method == "POST":
+        arquivo = request.files.get("comprovante")
+        tipos_permitidos = {"image/jpeg", "image/png", "application/pdf"}
+        if not arquivo or not arquivo.filename:
+            flash("Selecione o comprovante para enviar.", "erro")
+        elif arquivo.mimetype not in tipos_permitidos:
+            flash("Envie uma imagem JPG, PNG ou arquivo PDF.", "erro")
+        else:
+            conteudo = arquivo.read()
+            if not conteudo:
+                flash("Não foi possível ler o comprovante.", "erro")
+            else:
+                with conectar() as banco:
+                    banco.execute("UPDATE inscricoes_portal SET comprovante = ?, comprovante_nome = ?, comprovante_tipo = ?, comprovante_status = ? WHERE id = ?", (conteudo, arquivo.filename[:180], arquivo.mimetype, "Enviado", inscricao_id))
+                flash("Comprovante enviado! A Arena vai conferir o pagamento e confirmar sua matrícula pelo WhatsApp.", "sucesso")
+                return redirect(url_for("pagamento_inscricao", inscricao_id=inscricao_id))
+    return render_template("pagamento_inscricao.html", inscricao=inscricao)
+
+
+@app.get("/admin/inscricoes/<int:inscricao_id>/comprovante")
+@exige_admin
+def comprovante_inscricao(inscricao_id):
+    with conectar() as banco:
+        comprovante = banco.execute("SELECT comprovante, comprovante_nome, comprovante_tipo FROM inscricoes_portal WHERE id = ?", (inscricao_id,)).fetchone()
+    if comprovante is None or not comprovante["comprovante"]:
+        flash("Esta inscrição ainda não enviou comprovante.", "erro")
+        return redirect(url_for("painel_admin", secao="whatsapp"))
+    return send_file(BytesIO(bytes(comprovante["comprovante"])), mimetype=comprovante["comprovante_tipo"] or "application/octet-stream", as_attachment=False, download_name=comprovante["comprovante_nome"] or "comprovante")
 
 
 @app.route("/locacao", methods=["GET", "POST"])
