@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Inscrição aguardando confirmação | Arena Alpha{% endblock %}
+{% block content %}
+<section class="hero"><p class="selo">COMPROVANTE RECEBIDO</p><h1>Pronto, {{ inscricao.nome }}!</h1><p>Seu comprovante foi enviado com sucesso.</p></section>
+<section class="historico"><h2>Agora é só aguardar</h2><p>A Arena Alpha vai conferir o pagamento e confirmar sua inscrição pelo WhatsApp. Assim que a confirmação for feita, sua matrícula estará ativa na turma escolhida.</p><a class="botao" href="{{ url_for('inicio') }}">Voltar ao portal</a></section>
+{% endblock %}

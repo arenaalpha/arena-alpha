@@ -521,9 +521,20 @@ def pagamento_inscricao(inscricao_id):
             else:
                 with conectar() as banco:
                     banco.execute("UPDATE inscricoes_portal SET comprovante = ?, comprovante_nome = ?, comprovante_tipo = ?, comprovante_status = ? WHERE id = ?", (conteudo, arquivo.filename[:180], arquivo.mimetype, "Enviado", inscricao_id))
-                flash("Comprovante enviado! A Arena vai conferir o pagamento e confirmar sua matrícula pelo WhatsApp.", "sucesso")
-                return redirect(url_for("pagamento_inscricao", inscricao_id=inscricao_id))
+                return redirect(url_for("confirmacao_inscricao", inscricao_id=inscricao_id))
     return render_template("pagamento_inscricao.html", inscricao=inscricao)
+
+
+@app.get("/inscricao/<int:inscricao_id>/confirmacao")
+def confirmacao_inscricao(inscricao_id):
+    if session.get("inscricao_pagamento_id") != inscricao_id:
+        flash("Não encontramos esta inscrição neste navegador.", "erro")
+        return redirect(url_for("inscricao"))
+    with conectar() as banco:
+        inscricao = banco.execute("SELECT nome, status, comprovante_status FROM inscricoes_portal WHERE id = ?", (inscricao_id,)).fetchone()
+    if inscricao is None or inscricao["status"] != "Pendente":
+        return redirect(url_for("inscricao"))
+    return render_template("confirmacao_inscricao.html", inscricao=inscricao)
 
 
 @app.get("/admin/inscricoes/<int:inscricao_id>/comprovante")
