@@ -21,6 +21,7 @@ from modules.pagamentos import Pagamentos
 from modules.professores import Professores
 from modules.turmas import Turmas
 from modules.modalidades import Modalidades
+from modules.inscricoes import Inscricoes
 
 
 app = Flask(__name__)
@@ -123,11 +124,12 @@ def consultar_painel_local():
             experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
             modalidades = Modalidades().listar()
             professores = banco.execute("SELECT id, nome, telefone, especialidade FROM professores ORDER BY nome").fetchall()
+            inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
         atrasados = []
         for item in Pagamentos().situacao_atual():
             if item["status"] == "Em atraso" and item["aluno"]["whatsapp"]:
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "atrasados": atrasados}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -152,6 +154,9 @@ def enviar_acao_admin(acao, dados):
         if acao == "confirmar_reserva":
             Agenda().confirmar(int(dados["reserva_id"]))
             return {"mensagem": "Reserva confirmada e adicionada ao calendário."}
+        if acao == "confirmar_inscricao":
+            nome = Inscricoes().confirmar(int(dados["inscricao_id"]))
+            return {"mensagem": f"Inscrição de {nome} confirmada e matrícula criada."}
         if acao == "excluir_pagamento":
             Pagamentos().excluir(int(dados["pagamento_id"]))
             return {"mensagem": "Pagamento excluido."}
@@ -371,7 +376,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
@@ -460,6 +465,34 @@ def aulas():
             flash("Pedido de aula recebido! Em breve confirmaremos pelo WhatsApp.", "sucesso")
             return redirect(url_for("aulas"))
     return render_template("aulas.html", turmas=turmas)
+
+
+@app.route("/inscricao", methods=["GET", "POST"])
+def inscricao():
+    turmas = turmas_abertas()
+    if request.method == "POST":
+        if request.form.get("website"):
+            return redirect(url_for("inscricao"))
+        try:
+            obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
+            if any(not request.form.get(campo, "").strip() for campo in obrigatorios):
+                raise ValueError("Preencha todos os campos obrigatórios da inscrição.")
+            turma = next((item for item in turmas if str(item["id"]) == request.form.get("turma_id")), None)
+            if turma is None:
+                raise ValueError("Escolha uma turma aberta e um horário disponível.")
+            dados = {campo: request.form.get(campo, "") for campo in Alunos.campos}
+            planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
+            valor = planos.get(dados["esporte"], {}).get(dados["frequencia"])
+            if valor is None:
+                raise ValueError("Escolha uma frequência válida para o esporte.")
+            dados.update(telefone=dados["whatsapp"], modalidade=dados["esporte"], valor_plano=valor, data_inscricao=date.today().isoformat(), dia_vencimento=date.today().day)
+            Inscricoes().criar(dados, int(turma["id"]))
+        except (KeyError, ValueError) as erro:
+            flash(str(erro), "erro")
+        else:
+            flash("Inscrição recebida! Ela será validada após a confirmação da Arena pelo WhatsApp.", "sucesso")
+            return redirect(url_for("inscricao"))
+    return render_template("inscricao.html", turmas=turmas)
 
 
 @app.route("/locacao", methods=["GET", "POST"])
