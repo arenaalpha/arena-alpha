@@ -1,7 +1,7 @@
 from datetime import datetime
 import unicodedata
 
-from database.banco import conectar
+from database.banco import conectar, normalizar_telefone_brasil
 
 
 class AulasExperimentais:
@@ -26,7 +26,7 @@ class AulasExperimentais:
             resultado = banco.execute(
                 """INSERT INTO aulas_experimentais (nome, telefone, esporte, data, horario)
                    VALUES (?, ?, ?, ?, ?)""",
-                (nome.strip(), telefone.strip(), esporte, data_aula.isoformat(), horario.strip()),
+                (nome.strip(), normalizar_telefone_brasil(telefone), esporte, data_aula.isoformat(), horario.strip()),
             )
         return resultado.lastrowid
 

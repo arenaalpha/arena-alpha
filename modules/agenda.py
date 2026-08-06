@@ -2,7 +2,7 @@ import re
 import unicodedata
 from datetime import datetime, timedelta
 
-from database.banco import conectar
+from database.banco import conectar, normalizar_telefone_brasil
 from .base import Repositorio
 
 
@@ -97,7 +97,7 @@ class Agenda(Repositorio):
         horario = f"{inicio:%H:%M} as {fim:%H:%M}"
         super().cadastrar(
             quadra="Quadra Principal", data=data, horario=horario, cliente=cliente,
-            tipo_locacao=tipo_locacao, duracao_horas=duracao, valor=valor, whatsapp=whatsapp, status="Pendente",
+            tipo_locacao=tipo_locacao, duracao_horas=duracao, valor=valor, whatsapp=normalizar_telefone_brasil(whatsapp), status="Pendente",
         )
         return valor, horario
 

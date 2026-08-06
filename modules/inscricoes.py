@@ -1,6 +1,6 @@
 from datetime import date
 
-from database.banco import conectar
+from database.banco import conectar, normalizar_telefone_brasil
 from .alunos import Alunos
 from .turmas import Turmas
 
@@ -17,7 +17,7 @@ class Inscricoes:
     def criar(self, dados, turma_id):
         registro = {campo: str(dados.get(campo, "")).strip() for campo in self.campos}
         registro["cpf"] = "".join(c for c in registro["cpf"] if c.isdigit())
-        registro["whatsapp"] = "".join(c for c in registro["whatsapp"] if c.isdigit())
+        registro["whatsapp"] = normalizar_telefone_brasil(registro["whatsapp"])
         registro["telefone"] = registro["whatsapp"]
         if not registro["cpf"] or not registro["whatsapp"]:
             raise ValueError("Informe CPF e WhatsApp válidos.")

@@ -1,14 +1,13 @@
 import re
 import webbrowser
 from urllib.parse import quote
+from database.banco import normalizar_telefone_brasil
 
 
 class WhatsApp:
     @staticmethod
     def link(numero, mensagem):
-        numero = re.sub(r"\D", "", numero or "")
-        if len(numero) in (10, 11):
-            numero = "55" + numero
+        numero = normalizar_telefone_brasil(numero)
         if len(numero) < 12:
             raise ValueError("Informe um WhatsApp valido com DDD.")
         return f"https://wa.me/{numero}?text={quote(mensagem)}"

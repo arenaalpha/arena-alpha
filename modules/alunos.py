@@ -1,5 +1,5 @@
 from .base import Repositorio
-from database.banco import conectar
+from database.banco import conectar, normalizar_telefone_brasil
 
 
 class Alunos(Repositorio):
@@ -16,7 +16,7 @@ class Alunos(Repositorio):
 
     def cadastrar(self, nome, telefone="", modalidade="", **dados):
         cpf = "".join(caractere for caractere in str(dados.get("cpf", "")) if caractere.isdigit())
-        whatsapp = "".join(caractere for caractere in str(dados.get("whatsapp", telefone)) if caractere.isdigit())
+        whatsapp = normalizar_telefone_brasil(dados.get("whatsapp", telefone))
         with conectar() as banco:
             existentes = banco.execute("SELECT cpf, whatsapp, telefone FROM alunos").fetchall()
         for aluno in existentes:
@@ -33,8 +33,8 @@ class Alunos(Repositorio):
     def atualizar(self, identificador, **dados):
         registro = {campo: str(dados.get(campo, "")).strip() for campo in self.campos}
         registro["cpf"] = "".join(caractere for caractere in registro["cpf"] if caractere.isdigit())
-        registro["whatsapp"] = "".join(caractere for caractere in registro["whatsapp"] if caractere.isdigit())
-        registro["telefone"] = "".join(caractere for caractere in registro["telefone"] if caractere.isdigit()) or registro["whatsapp"]
+        registro["whatsapp"] = normalizar_telefone_brasil(registro["whatsapp"])
+        registro["telefone"] = normalizar_telefone_brasil(registro["telefone"]) or registro["whatsapp"]
         with conectar() as banco:
             atual = banco.execute("SELECT id FROM alunos WHERE id = ?", (identificador,)).fetchone()
             if atual is None:

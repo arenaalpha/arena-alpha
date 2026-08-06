@@ -21,6 +21,35 @@ DATABASE_URL = _url_do_banco_online()
 USAR_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
 
+def normalizar_telefone_brasil(valor):
+    """Converte DDD + número para o padrão aceito pelo WhatsApp: 55DDDNÚMERO."""
+    numero = "".join(caractere for caractere in str(valor or "") if caractere.isdigit())
+    if numero.startswith("0") and len(numero) in (11, 12):
+        numero = numero[1:]
+    if numero.startswith("55") and len(numero) in (12, 13):
+        return numero
+    if len(numero) in (10, 11):
+        return "55" + numero
+    return numero
+
+
+def normalizar_telefones_brasil():
+    campos = {
+        "alunos": ("whatsapp", "telefone"),
+        "agenda": ("whatsapp",),
+        "aulas_experimentais": ("telefone",),
+        "inscricoes_portal": ("whatsapp", "telefone"),
+    }
+    with conectar() as banco:
+        for tabela, colunas in campos.items():
+            for coluna in colunas:
+                registros = banco.execute(f"SELECT id, {coluna} FROM {tabela}").fetchall()
+                for registro in registros:
+                    corrigido = normalizar_telefone_brasil(registro[coluna])
+                    if corrigido and corrigido != registro[coluna]:
+                        banco.execute(f"UPDATE {tabela} SET {coluna} = ? WHERE id = ?", (corrigido, registro["id"]))
+
+
 class ResultadoPostgres:
     def __init__(self, cursor, lastrowid=None):
         self.cursor, self.lastrowid, self.rowcount = cursor, lastrowid, cursor.rowcount
@@ -65,8 +94,10 @@ def conectar():
 
 def criar_tabelas():
     if USAR_POSTGRES:
-        return _criar_postgres()
-    return _criar_sqlite()
+        _criar_postgres()
+    else:
+        _criar_sqlite()
+    normalizar_telefones_brasil()
 
 
 def _criar_postgres():
