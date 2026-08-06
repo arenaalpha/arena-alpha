@@ -27,6 +27,8 @@ conteudo.append(Spacer(1, 14))
 conteudo.append(Paragraph("Sua matrícula já foi confirmada. Agora use o Portal do Aluno para acompanhar suas informações na Arena Alpha.", styles["Texto"]))
 
 conteudo.append(Paragraph("Como entrar no Portal do Aluno", styles["Subtitulo"]))
+conteudo.append(Paragraph('Link direto: <a href="https://arena-alpha-portal.onrender.com/portal" color="#a96f10"><u>https://arena-alpha-portal.onrender.com/portal</u></a>', styles["Texto"]))
+conteudo.append(Spacer(1, 6))
 passos = [
     "Abra o site da Arena Alpha: <b>arena-alpha-portal.onrender.com</b>.",
     "Toque em <b>Portal do aluno</b> no menu superior.",
