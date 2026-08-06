@@ -84,9 +84,46 @@ class Turmas(Repositorio):
     def alunos_da_turma(self, turma_id):
         with conectar() as banco:
             return banco.execute(
-                """SELECT a.nome, a.whatsapp, a.esporte, a.frequencia, m.dia_treino
+                """SELECT a.id, a.nome, a.whatsapp, a.esporte, a.frequencia, m.dia_treino
                    FROM matriculas_turma m
                    JOIN alunos a ON a.id = m.aluno_id
                    WHERE m.turma_id = ? ORDER BY a.nome""",
                 (turma_id,),
             ).fetchall()
+
+    def turma_do_aluno(self, aluno_id):
+        with conectar() as banco:
+            return banco.execute(
+                """SELECT t.id, t.nome, t.horario, t.modalidade, m.dia_treino
+                   FROM matriculas_turma m JOIN turmas t ON t.id = m.turma_id
+                   WHERE m.aluno_id = ? ORDER BY m.id LIMIT 1""", (aluno_id,)
+            ).fetchone()
+
+    def transferir_aluno(self, aluno_id, turma_id, frequencia):
+        with conectar() as banco:
+            turma = banco.execute("SELECT id, dia_semana FROM turmas WHERE id = ?", (turma_id,)).fetchone()
+            if turma is None:
+                raise ValueError("Turma selecionada não encontrada.")
+            banco.execute("DELETE FROM matriculas_turma WHERE aluno_id = ?", (aluno_id,))
+            dia_treino = turma["dia_semana"] if (frequencia or "").startswith("1x") else "Todos os dias da turma"
+            banco.execute("INSERT INTO matriculas_turma (aluno_id, turma_id, dia_treino) VALUES (?, ?, ?)", (aluno_id, turma_id, dia_treino))
+
+    def resumo_financeiro(self, status_por_aluno):
+        with conectar() as banco:
+            linhas = banco.execute(
+                """SELECT t.id AS turma_id, a.id AS aluno_id
+                   FROM turmas t LEFT JOIN matriculas_turma m ON m.turma_id = t.id
+                   LEFT JOIN alunos a ON a.id = m.aluno_id"""
+            ).fetchall()
+        resumo = {}
+        for linha in linhas:
+            item = resumo.setdefault(linha["turma_id"], {"total_alunos": 0, "pagos": 0, "em_atraso": 0})
+            if linha["aluno_id"] is None:
+                continue
+            item["total_alunos"] += 1
+            status = status_por_aluno.get(linha["aluno_id"], "Pendente")
+            if str(status).startswith("Pago"):
+                item["pagos"] += 1
+            elif status == "Em atraso":
+                item["em_atraso"] += 1
+        return resumo

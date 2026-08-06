@@ -305,9 +305,13 @@ class ArenaAlpha(ctk.CTk):
                 lista.insert("1.0", "Selecione uma turma para ver os alunos.")
             else:
                 alunos_turma = Turmas().alunos_da_turma(turma["id"])
-                texto = "Nenhum aluno vinculado a esta turma." if not alunos_turma else "\n".join(
+                situacoes = {item["aluno"]["id"]: item["status"] for item in Pagamentos().situacao_atual()}
+                pagos = sum(1 for aluno in alunos_turma if str(situacoes.get(aluno["id"], "")).startswith("Pago"))
+                atrasados = sum(1 for aluno in alunos_turma if situacoes.get(aluno["id"]) == "Em atraso")
+                cabecalho = f"Total de alunos: {len(alunos_turma)} | Pagos: {pagos} | Em atraso: {atrasados}\n\n"
+                texto = cabecalho + ("Nenhum aluno vinculado a esta turma." if not alunos_turma else "\n".join(
                     f"• {aluno['nome']}" for aluno in alunos_turma
-                )
+                ))
                 lista.insert("1.0", texto)
             lista.configure(state="disabled")
 
@@ -569,6 +573,48 @@ class ArenaAlpha(ctk.CTk):
                 relatorio.insert("1.0", "\n".join(linhas))
             relatorio.configure(state="disabled")
 
+        def editar_aluno_selecionado():
+            aluno = mapa.get(aluno_var.get())
+            if aluno is None:
+                messagebox.showwarning("Aluno obrigatório", "Selecione um aluno para editar.")
+                return
+            janela = ctk.CTkToplevel(self)
+            janela.title(f"Editar aluno - {aluno['nome']}")
+            janela.geometry("620x720")
+            formulario = ctk.CTkScrollableFrame(janela)
+            formulario.pack(fill="both", expand=True, padx=12, pady=12)
+            entradas = {}
+            nomes_editaveis = {"nome":"Nome completo", "telefone":"Telefone", "modalidade":"Modalidade", "data_nascimento":"Data de nascimento", "cpf":"CPF", "endereco":"Endereço", "esporte":"Esporte", "frequencia":"Frequência", "valor_plano":"Valor do plano", "como_conheceu":"Como conheceu", "restricoes_alimentares":"Restrições alimentares", "problema_saude":"Problema de saúde", "necessidades_especiais":"Necessidades especiais", "menor_idade":"Menor de idade", "responsavel_nome":"Nome do responsável", "responsavel_cpf":"CPF do responsável", "responsavel_parentesco":"Parentesco", "autorizacao_imagem":"Autorização de imagem", "data_inscricao":"Data de inscrição", "dia_vencimento":"Dia de vencimento", "whatsapp":"WhatsApp"}
+            for campo in Alunos.campos:
+                ctk.CTkLabel(formulario, text=nomes_editaveis[campo]).pack(anchor="w", pady=(8, 2))
+                entrada = ctk.CTkEntry(formulario, height=34)
+                entrada.insert(0, str(aluno[campo] or ""))
+                entrada.pack(fill="x")
+                entradas[campo] = entrada
+            turmas = Turmas().listar()
+            mapa_turmas = {f"{turma['nome']} | {turma['horario']}": turma for turma in turmas}
+            atual = Turmas().turma_do_aluno(aluno["id"])
+            turma_var = ctk.StringVar(value=next((rotulo for rotulo, turma in mapa_turmas.items() if atual and turma["id"] == atual["id"]), "Selecione uma turma"))
+            ctk.CTkLabel(formulario, text="Turma do aluno").pack(anchor="w", pady=(8, 2))
+            ctk.CTkOptionMenu(formulario, values=list(mapa_turmas) or ["Nenhuma turma"], variable=turma_var).pack(fill="x")
+            def salvar_edicao():
+                turma = mapa_turmas.get(turma_var.get())
+                if turma is None:
+                    messagebox.showwarning("Turma obrigatória", "Selecione a nova turma do aluno.")
+                    return
+                try:
+                    valores = {campo: entradas[campo].get().strip() for campo in Alunos.campos}
+                    Alunos().atualizar(aluno["id"], **valores)
+                    Turmas().transferir_aluno(aluno["id"], turma["id"], valores["frequencia"])
+                except ValueError as erro:
+                    messagebox.showerror("Não foi possível salvar", str(erro))
+                    return
+                messagebox.showinfo("Aluno atualizado", "Dados e turma atualizados no banco online.")
+                janela.destroy()
+                self.mostrar_alunos()
+            ctk.CTkButton(formulario, text="Salvar alterações", command=salvar_edicao, height=40, fg_color=self.PRIMARIA).pack(fill="x", pady=18)
+
+        ctk.CTkButton(seletor, text="Editar aluno selecionado", command=editar_aluno_selecionado, height=38, fg_color=self.PRIMARIA).pack(fill="x", padx=22, pady=(0, 18))
         menu.configure(command=carregar_relatorio)
         carregar_relatorio()
 

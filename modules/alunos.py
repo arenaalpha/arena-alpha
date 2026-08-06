@@ -29,3 +29,23 @@ class Alunos(Repositorio):
         registro = {campo: "" for campo in self.campos}
         registro.update(nome=nome, telefone=telefone, modalidade=modalidade, **dados)
         return super().cadastrar(**registro)
+
+    def atualizar(self, identificador, **dados):
+        registro = {campo: str(dados.get(campo, "")).strip() for campo in self.campos}
+        registro["cpf"] = "".join(caractere for caractere in registro["cpf"] if caractere.isdigit())
+        registro["whatsapp"] = "".join(caractere for caractere in registro["whatsapp"] if caractere.isdigit())
+        registro["telefone"] = "".join(caractere for caractere in registro["telefone"] if caractere.isdigit()) or registro["whatsapp"]
+        with conectar() as banco:
+            atual = banco.execute("SELECT id FROM alunos WHERE id = ?", (identificador,)).fetchone()
+            if atual is None:
+                raise ValueError("Aluno não encontrado.")
+            existentes = banco.execute("SELECT id, cpf, whatsapp, telefone FROM alunos WHERE id <> ?", (identificador,)).fetchall()
+            for aluno in existentes:
+                cpf = "".join(c for c in str(aluno["cpf"] or "") if c.isdigit())
+                whatsapp = "".join(c for c in str(aluno["whatsapp"] or aluno["telefone"] or "") if c.isdigit())
+                if registro["cpf"] and registro["cpf"] == cpf:
+                    raise ValueError("Já existe outro aluno cadastrado com este CPF.")
+                if registro["whatsapp"] and registro["whatsapp"] == whatsapp:
+                    raise ValueError("Já existe outro aluno cadastrado com este WhatsApp.")
+            atualizacoes = ", ".join(f"{campo} = ?" for campo in self.campos)
+            banco.execute(f"UPDATE alunos SET {atualizacoes} WHERE id = ?", (*[registro[campo] for campo in self.campos], identificador))

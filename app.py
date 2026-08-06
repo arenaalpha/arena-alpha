@@ -118,7 +118,7 @@ def consultar_aluno_local(cpf):
 def consultar_painel_local():
     if banco_online():
         with conectar() as banco:
-            alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
+            alunos = banco.execute("SELECT a.*, (SELECT m.turma_id FROM matriculas_turma m WHERE m.aluno_id = a.id ORDER BY m.id LIMIT 1) AS turma_id FROM alunos a ORDER BY a.nome").fetchall()
             turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
             reservas = banco.execute("SELECT id, cliente, whatsapp, data, horario, tipo_locacao, valor, status FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
@@ -127,11 +127,13 @@ def consultar_painel_local():
             modalidades = Modalidades().listar()
             professores = banco.execute("SELECT id, nome, telefone, especialidade FROM professores ORDER BY nome").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
-        atrasados = []
+        atrasados, status_por_aluno = [], {}
         for item in Pagamentos().situacao_atual():
+            status_por_aluno[item["aluno"]["id"]] = item["status"]
             if item["status"] == "Em atraso" and item["aluno"]["whatsapp"]:
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados}
+        resumo_turmas = Turmas().resumo_financeiro(status_por_aluno)
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -203,6 +205,12 @@ def enviar_acao_admin(acao, dados):
             if turma is None: raise ValueError("Turma selecionada nao encontrada.")
             Turmas().vincular_aluno(aluno_id, turma["id"], turma["dia_semana"] if dados["frequencia"].startswith("1x") else "Todos os dias da turma")
             return {"mensagem": "Aluno cadastrado."}
+        if acao == "editar_aluno":
+            aluno_id = int(dados["aluno_id"])
+            valores = {campo: dados.get(campo, "") for campo in Alunos.campos}
+            Alunos().atualizar(aluno_id, **valores)
+            Turmas().transferir_aluno(aluno_id, int(dados["turma_id"]), valores["frequencia"])
+            return {"mensagem": "Dados do aluno e turma atualizados."}
         raise ValueError("Acao administrativa invalida.")
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
@@ -376,10 +384,11 @@ def admin():
 @app.get("/admin/painel")
 @exige_admin
 def painel_admin():
+    secao = request.args.get("secao", "inicio")
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
@@ -396,7 +405,8 @@ def painel_admin():
                 if reserva.get("status") == "Confirmada" and reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
                     itens.append(f"Reserva · {reserva.get('horario') or '-'} · {reserva.get('cliente')}")
             agenda_mensal[numero] = itens
-    return render_template("admin_painel.html", secao=request.args.get("secao", "inicio"), calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_painel.html"
+    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
 @app.post("/admin/acao")
