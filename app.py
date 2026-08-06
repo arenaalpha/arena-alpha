@@ -133,7 +133,8 @@ def consultar_painel_local():
             if item["status"] == "Em atraso" and item["aluno"]["whatsapp"]:
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
         resumo_turmas = Turmas().resumo_financeiro(status_por_aluno)
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados}
+        alunos_por_turma = {turma["id"]: [dict(aluno) for aluno in Turmas().alunos_da_turma(turma["id"])] for turma in turmas}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -388,7 +389,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
