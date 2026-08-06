@@ -59,6 +59,20 @@ class Financeiro:
             "pagamentos": quantidade_receitas,
         }
 
+    def resumo_geral(self):
+        """Totais acumulados usados para mostrar o caixa atual da Arena."""
+        with conectar() as banco:
+            receitas = banco.execute("SELECT COALESCE(SUM(valor), 0) FROM pagamentos WHERE pago_em IS NOT NULL").fetchone()[0]
+            despesas = banco.execute("SELECT COALESCE(SUM(valor), 0) FROM despesas").fetchone()[0]
+            quantidade_despesas = banco.execute("SELECT COUNT(*) FROM despesas").fetchone()[0]
+        receitas, despesas = float(receitas), float(despesas)
+        return {
+            "receitas": receitas,
+            "despesas": despesas,
+            "caixa": receitas - despesas,
+            "quantidade_despesas": quantidade_despesas,
+        }
+
     def lancamentos_recentes(self, limite=20):
         with conectar() as banco:
             receitas = banco.execute(

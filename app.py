@@ -144,6 +144,7 @@ def consultar_painel_local():
             modalidades = Modalidades().listar()
             professores = banco.execute("SELECT id, nome, telefone, especialidade FROM professores ORDER BY nome").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
+        financeiro = Financeiro()
         atrasados, status_por_aluno = [], {}
         for item in Pagamentos().situacao_atual():
             status_por_aluno[item["aluno"]["id"]] = item["status"]
@@ -151,7 +152,7 @@ def consultar_painel_local():
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
         resumo_turmas = Turmas().resumo_financeiro(status_por_aluno)
         alunos_por_turma = {turma["id"]: [dict(aluno) for aluno in Turmas().alunos_da_turma(turma["id"])] for turma in turmas}
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -203,6 +204,12 @@ def enviar_acao_admin(acao, dados):
         if acao == "pagamento":
             resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), data_do_formulario(dados["data_pagamento"]))
             return {"mensagem": f"Pagamento registrado: {resultado['status']}."}
+        if acao == "nova_despesa":
+            Financeiro().registrar_despesa(
+                dados.get("descricao", ""), dados.get("categoria", "Outros"),
+                dados.get("valor", ""), data_do_formulario(dados["data"]), dados.get("observacao", ""),
+            )
+            return {"mensagem": "Despesa registrada no financeiro."}
         if acao == "nova_turma":
             Turmas().criar(dados["nome"], dados["dia_semana"], dados["dia_semana_2"], dados["horario"], dados.get("professor", ""), dados["modalidade"])
             return {"mensagem": "Turma criada."}
@@ -423,7 +430,7 @@ def painel_admin():
                 if reserva.get("status") == "Confirmada" and reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
                     itens.append(f"Reserva · {reserva.get('horario') or '-'} · {reserva.get('cliente')}")
             agenda_mensal[numero] = itens
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
