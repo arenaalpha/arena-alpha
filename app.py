@@ -101,6 +101,23 @@ def turmas_abertas():
         return []
 
 
+def turmas_experimentais_abertas():
+    """Repete os próximos encontros de cada turma por até 30 dias."""
+    limite = date.today() + timedelta(days=30)
+    resultado = []
+    for turma in turmas_abertas():
+        try:
+            data_aula = datetime.strptime(turma["proxima_data"], "%d/%m/%Y").date()
+        except (KeyError, TypeError, ValueError):
+            continue
+        while data_aula <= limite:
+            opcao = dict(turma)
+            opcao["data_agendamento"] = data_aula.strftime("%d/%m/%Y")
+            resultado.append(opcao)
+            data_aula += timedelta(days=7)
+    return sorted(resultado, key=lambda item: (datetime.strptime(item["data_agendamento"], "%d/%m/%Y").date(), item["horario"], item["nome"]))
+
+
 def consultar_aluno_local(cpf):
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino:
@@ -462,15 +479,16 @@ def sair_portal():
 
 @app.route("/aulas", methods=["GET", "POST"])
 def aulas():
-    turmas = turmas_abertas()
+    turmas = turmas_experimentais_abertas()
     if request.method == "POST":
         if request.form.get("website"):
             return redirect(url_for("aulas"))
         try:
-            turma = next((item for item in turmas if str(item["id"]) == request.form.get("turma_id")), None)
+            turma_id, separador, data_agendamento = request.form.get("turma_id", "").partition("|")
+            turma = next((item for item in turmas if str(item["id"]) == turma_id and item["data_agendamento"] == data_agendamento), None)
             if turma is None:
                 raise ValueError("Escolha uma turma aberta e um horario disponivel.")
-            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": turma["modalidade"], "data": turma["proxima_data"], "horario": turma["horario"]}
+            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": turma["modalidade"], "data": turma["data_agendamento"], "horario": turma["horario"]}
             if not encaminhar_para_banco_local("aula", dados):
                 AulasExperimentais().agendar(**dados)
         except (KeyError, ValueError) as erro:

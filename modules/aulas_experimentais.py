@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import unicodedata
 
 from database.banco import conectar, normalizar_telefone_brasil
@@ -17,6 +17,8 @@ class AulasExperimentais:
             data_aula = datetime.strptime(data, "%d/%m/%Y").date()
         except ValueError:
             raise ValueError("Informe a data no formato dd/mm/aaaa.")
+        if data_aula < date.today() or data_aula > date.today() + timedelta(days=30):
+            raise ValueError("A aula experimental pode ser agendada somente para os próximos 30 dias.")
         esporte_normalizado = self._normalizar(esporte)
         if "volei" in esporte_normalizado and "fut" not in esporte_normalizado and data_aula.weekday() != 0:
             raise ValueError("A aula experimental de Volei de Areia acontece somente as segundas-feiras.")
