@@ -557,7 +557,12 @@ def aulas():
         else:
             flash("Pedido de aula recebido! Em breve confirmaremos pelo WhatsApp.", "sucesso")
             return redirect(url_for("aulas"))
-    return render_template("aulas.html", turmas=turmas)
+    esportes_experimentais = ["Vôlei de areia", "Futvôlei"]
+    for turma in turmas:
+        modalidade = turma.get("modalidade")
+        if modalidade and modalidade not in esportes_experimentais:
+            esportes_experimentais.append(modalidade)
+    return render_template("aulas.html", turmas=turmas, esportes_experimentais=esportes_experimentais)
 
 
 @app.route("/inscricao", methods=["GET", "POST"])
