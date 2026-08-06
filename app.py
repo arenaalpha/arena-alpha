@@ -251,7 +251,8 @@ def situacao_pagamento_portal(aluno, pagamentos, referencia=None):
 
 def tem_desconto_volei(aluno):
     esporte = aluno.get("esporte", "") if isinstance(aluno, dict) else aluno["esporte"]
-    return "volei" in (esporte or "").lower().replace("ô", "o")
+    frequencia = aluno.get("frequencia", "") if isinstance(aluno, dict) else aluno["frequencia"]
+    return "volei" in (esporte or "").lower().replace("ô", "o") and (frequencia or "").startswith("2x")
 
 
 def aulas_matriculadas_local(aluno_id):
