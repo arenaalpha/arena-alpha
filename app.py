@@ -182,7 +182,7 @@ def consultar_painel_local():
             reservas = banco.execute("SELECT id, cliente, whatsapp, data, horario, tipo_locacao, valor, status FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
             despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
-            experimentais = banco.execute("SELECT id, nome, telefone, esporte, data, horario, turma FROM aulas_experimentais ORDER BY data, horario, id").fetchall()
+            experimentais = banco.execute("SELECT id, nome, telefone, esporte, data, horario, turma, confirmacao_enviada FROM aulas_experimentais ORDER BY data, horario, id").fetchall()
             modalidades = Modalidades().listar()
             professores = banco.execute("SELECT id, nome, telefone, especialidade FROM professores ORDER BY nome").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
@@ -195,7 +195,17 @@ def consultar_painel_local():
         resumo_turmas = Turmas().resumo_financeiro(status_por_aluno)
         alunos_por_turma = {turma["id"]: [dict(aluno) for aluno in Turmas().alunos_da_turma(turma["id"])] for turma in turmas}
         experimentais_agendadas, grupos_experimentais = organizar_experimentais([dict(item) for item in experimentais])
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
+        experimentais_pendentes = []
+        for aula in experimentais:
+            try:
+                data_aula = datetime.strptime(str(aula["data"]), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if not aula["confirmacao_enviada"] and data_aula >= date.today():
+                item = dict(aula)
+                item["data_exibicao"] = data_aula.strftime("%d/%m/%Y")
+                experimentais_pendentes.append(item)
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -214,6 +224,9 @@ def enviar_acao_admin(acao, dados):
         if acao == "limpar_experimentais":
             AulasExperimentais().limpar_historico()
             return {"mensagem": "Historico de aulas experimentais apagado."}
+        if acao == "confirmar_experimental":
+            AulasExperimentais().marcar_confirmacao(int(dados["aula_id"]))
+            return {"mensagem": "Aula experimental confirmada."}
         if acao == "limpar_reservas":
             Agenda().limpar_historico()
             return {"mensagem": "Historico de reservas da quadra apagado."}
@@ -456,7 +469,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
@@ -473,7 +486,7 @@ def painel_admin():
                 if reserva.get("status") == "Confirmada" and reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
                     itens.append(f"Reserva · {reserva.get('horario') or '-'} · {reserva.get('cliente')}")
             agenda_mensal[numero] = itens
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
