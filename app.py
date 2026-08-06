@@ -558,7 +558,8 @@ def pagamento_inscricao(inscricao_id):
             else:
                 with conectar() as banco:
                     banco.execute("UPDATE inscricoes_portal SET comprovante = ?, comprovante_nome = ?, comprovante_tipo = ?, comprovante_status = ? WHERE id = ?", (conteudo, arquivo.filename[:180], arquivo.mimetype, "Enviado", inscricao_id))
-                return redirect(url_for("confirmacao_inscricao", inscricao_id=inscricao_id))
+                flash("Comprovante enviado. Aguarde a confirmação da Arena pelo WhatsApp.", "sucesso")
+                return redirect(url_for("inicio"))
     return render_template("pagamento_inscricao.html", inscricao=inscricao)
 
 
