@@ -37,9 +37,13 @@ class Pagamentos:
             vencimento = self._vencimento_do_mes(aluno["dia_vencimento"], data_pagamento)
             valor_original = float(aluno["valor_plano"])
             em_dia = data_pagamento <= vencimento
-            # O desconto de pontualidade vale somente para o plano de vôlei 2x por semana.
+            # O desconto vale somente para vôlei 2x, a partir da segunda mensalidade.
             plano_duas_vezes = (aluno["frequencia"] or "").startswith("2x")
-            desconto = 20.0 if aluno["esporte"] == "Volei de areia" and plano_duas_vezes and em_dia else 0.0
+            pagamentos_anteriores = banco.execute(
+                "SELECT COUNT(*) FROM pagamentos WHERE aluno_id = ?", (aluno_id,)
+            ).fetchone()[0]
+            tem_direito_ao_desconto = pagamentos_anteriores >= 1
+            desconto = 20.0 if aluno["esporte"] == "Volei de areia" and plano_duas_vezes and tem_direito_ao_desconto and em_dia else 0.0
             valor_final = max(valor_original - desconto, 0.0)
             status = "Pago em dia" if em_dia else "Pago em atraso"
             banco.execute(
