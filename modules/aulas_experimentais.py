@@ -12,7 +12,7 @@ class AulasExperimentais:
             if unicodedata.category(caractere) != "Mn"
         )
 
-    def agendar(self, nome, telefone, esporte, data, horario=""):
+    def agendar(self, nome, telefone, esporte, data, horario="", turma=""):
         try:
             data_aula = datetime.strptime(data, "%d/%m/%Y").date()
         except ValueError:
@@ -26,9 +26,9 @@ class AulasExperimentais:
             raise ValueError("Informe o nome completo e o telefone.")
         with conectar() as banco:
             resultado = banco.execute(
-                """INSERT INTO aulas_experimentais (nome, telefone, esporte, data, horario)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (nome.strip(), normalizar_telefone_brasil(telefone), esporte, data_aula.isoformat(), horario.strip()),
+                """INSERT INTO aulas_experimentais (nome, telefone, esporte, data, horario, turma)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (nome.strip(), normalizar_telefone_brasil(telefone), esporte, data_aula.isoformat(), horario.strip(), turma.strip()),
             )
         return resultado.lastrowid
 

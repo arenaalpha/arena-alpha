@@ -121,6 +121,7 @@ def _criar_postgres():
     with conectar() as banco:
         for sql in tabelas: banco.execute(sql)
         banco.execute("ALTER TABLE agenda ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pendente'")
+        banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS turma TEXT")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante BYTEA")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_nome TEXT")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_tipo TEXT")
@@ -159,6 +160,9 @@ def _criar_sqlite():
             existentes = {linha["name"] for linha in banco.execute(f"PRAGMA table_info({tabela})").fetchall()}
             for nome, tipo in colunas.items():
                 if nome not in existentes: banco.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
+        existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(aulas_experimentais)").fetchall()}
+        if "turma" not in existentes:
+            banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN turma TEXT")
         existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(inscricoes_portal)").fetchall()}
         for nome, tipo in {"comprovante":"BLOB", "comprovante_nome":"TEXT", "comprovante_tipo":"TEXT", "comprovante_status":"TEXT DEFAULT 'Aguardando envio'"}.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE inscricoes_portal ADD COLUMN {nome} {tipo}")

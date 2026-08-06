@@ -132,6 +132,34 @@ def consultar_aluno_local(cpf):
         return None
 
 
+def organizar_experimentais(experimentais):
+    """Agrupa aulas futuras por data, horário e turma para a visão geral."""
+    grupos = {}
+    hoje = date.today()
+    for aula in experimentais:
+        texto_data = str(aula.get("data") or "")
+        try:
+            data_aula = datetime.strptime(texto_data, "%Y-%m-%d").date()
+        except ValueError:
+            try:
+                data_aula = datetime.strptime(texto_data, "%d/%m/%Y").date()
+            except ValueError:
+                continue
+        if data_aula < hoje:
+            continue
+        turma = aula.get("turma") or aula.get("esporte") or "Turma não informada"
+        horario = aula.get("horario") or "Horário não informado"
+        chave = (data_aula, horario, turma)
+        grupos.setdefault(chave, []).append(aula)
+    resultado = []
+    for (data_aula, horario, turma), participantes in sorted(grupos.items(), key=lambda item: (item[0][0], item[0][1], item[0][2])):
+        resultado.append({
+            "data": data_aula.strftime("%d/%m/%Y"), "horario": horario,
+            "turma": turma, "participantes": sorted(participantes, key=lambda item: item["nome"].lower()),
+        })
+    return sum(len(grupo["participantes"]) for grupo in resultado), resultado
+
+
 def consultar_painel_local():
     if banco_online():
         with conectar() as banco:
@@ -140,7 +168,7 @@ def consultar_painel_local():
             reservas = banco.execute("SELECT id, cliente, whatsapp, data, horario, tipo_locacao, valor, status FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
             despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
-            experimentais = banco.execute("SELECT nome, telefone, esporte, data, horario FROM aulas_experimentais ORDER BY id DESC LIMIT 20").fetchall()
+            experimentais = banco.execute("SELECT id, nome, telefone, esporte, data, horario, turma FROM aulas_experimentais ORDER BY data, horario, id").fetchall()
             modalidades = Modalidades().listar()
             professores = banco.execute("SELECT id, nome, telefone, especialidade FROM professores ORDER BY nome").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
@@ -152,7 +180,8 @@ def consultar_painel_local():
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
         resumo_turmas = Turmas().resumo_financeiro(status_por_aluno)
         alunos_por_turma = {turma["id"]: [dict(aluno) for aluno in Turmas().alunos_da_turma(turma["id"])] for turma in turmas}
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
+        experimentais_agendadas, grupos_experimentais = organizar_experimentais([dict(item) for item in experimentais])
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -413,7 +442,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
@@ -430,7 +459,7 @@ def painel_admin():
                 if reserva.get("status") == "Confirmada" and reserva.get("data") == data_atual.strftime("%d/%m/%Y"):
                     itens.append(f"Reserva · {reserva.get('horario') or '-'} · {reserva.get('cliente')}")
             agenda_mensal[numero] = itens
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
@@ -495,7 +524,7 @@ def aulas():
             turma = next((item for item in turmas if str(item["id"]) == turma_id and item["data_agendamento"] == data_agendamento), None)
             if turma is None:
                 raise ValueError("Escolha uma turma aberta e um horario disponivel.")
-            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": turma["modalidade"], "data": turma["data_agendamento"], "horario": turma["horario"]}
+            dados = {"nome": request.form.get("nome", ""), "telefone": request.form.get("telefone", ""), "esporte": turma["modalidade"], "turma": turma["nome"], "data": turma["data_agendamento"], "horario": turma["horario"]}
             if not encaminhar_para_banco_local("aula", dados):
                 AulasExperimentais().agendar(**dados)
         except (KeyError, ValueError) as erro:
