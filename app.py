@@ -481,9 +481,11 @@ def painel_admin():
                 continue
             data_atual, itens = date(hoje.year, hoje.month, numero), []
             for turma in painel.get("turmas", []):
+                if turma.get("status_aula") == "Aula cancelada":
+                    continue
                 if nomes_dias[data_atual.weekday()] in ((turma.get("dia_semana") or "").lower(), (turma.get("dia_semana_2") or "").lower()):
                     modalidade = modalidade_para_exibicao(turma.get("modalidade"))
-                    itens.append(f"Aula · {turma['horario']} · {turma['nome']} · {modalidade}")
+                    itens.append(f"{turma['nome']} · {modalidade}")
             agenda_mensal[numero] = itens
     modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
