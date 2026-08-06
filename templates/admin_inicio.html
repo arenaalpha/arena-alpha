@@ -1,7 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Visão geral | Gestão Arena Alpha{% endblock %}
 {% block content %}
-<div class="gestao-layout"><aside class="gestao-menu"><p class="gestao-marca">ARENA <span>ALPHA</span></p><small>GESTÃO ESPORTIVA</small><nav><a class="ativo" href="{{ url_for('painel_admin', secao='inicio') }}">⌂ Início</a><a href="{{ url_for('painel_admin', secao='alunos') }}">👤 Alunos</a><a href="{{ url_for('painel_admin', secao='experimentais') }}">🏐 Aula experimental</a><a href="{{ url_for('painel_admin', secao='turmas') }}">👥 Turmas</a><a href="{{ url_for('painel_admin', secao='reservas') }}">⚽ Locação</a><a href="{{ url_for('painel_admin', secao='pagamentos') }}">R$ Financeiro</a><a href="{{ url_for('painel_admin', secao='whatsapp') }}">💬 WhatsApp</a><a href="{{ url_for('painel_admin', secao='administracao') }}">⚙ Administração</a></nav><form method="post" action="{{ url_for('sair_admin') }}"><button>Sair do painel</button></form></aside><section class="gestao-conteudo"><p class="selo">PAINEL DE CONTROLE</p><h1>Visão geral</h1><div class="indicadores"><article><b>{{ alunos|length }}</b><span>Alunos ativos</span></article><article><b>{{ turmas|length }}</b><span>Turmas</span></article><article><b>{{ reservas|length }}</b><span>Reservas recentes</span></article><button class="indicador-clicavel" type="button" onclick="mostrarExperimentais()"><b>{{ experimentais_agendadas|default(0) }}</b><span>Aulas experimentais agendadas</span><small>Clique para ver detalhes</small></button></div>
-<section id="detalhes-experimentais" class="historico" style="display:none"><div class="historico-titulo"><div><p class="selo">AULAS EXPERIMENTAIS</p><h2>Agendamentos por dia e horário</h2></div><button class="link-botao" type="button" onclick="mostrarExperimentais()">Fechar</button></div>{% for grupo in grupos_experimentais|default([]) %}<article class="grupo-experimental"><h3>📅 {{ grupo.data }} · {{ grupo.horario }}</h3><p><strong>Turma:</strong> {{ grupo.turma }}</p><ul>{% for participante in grupo.participantes %}<li><strong>{{ participante.nome }}</strong> · {{ participante.telefone }}</li>{% endfor %}</ul></article>{% else %}<p class="vazio">Não há aulas experimentais futuras agendadas.</p>{% endfor %}</section>
-<section class="historico calendario-painel"><h2>Calendário · {{ mes_calendario }}</h2><div class="dias-calendario"><b>Seg</b><b>Ter</b><b>Qua</b><b>Qui</b><b>Sex</b><b>Sáb</b><b>Dom</b>{% for semana in calendario_mes %}{% for dia in semana %}<span class="dia-agenda {% if dia == hoje %}hoje{% endif %}">{% if dia %}<strong>{{ dia }}</strong>{% for item in agenda_mensal.get(dia, []) %}<small>{{ item }}</small>{% endfor %}{% endif %}</span>{% endfor %}{% endfor %}</div></section><section class="historico"><h2>Ações rápidas</h2><div class="acoes"><a class="botao" href="{{ url_for('painel_admin', secao='alunos') }}">Cadastrar aluno</a><a class="botao secundario" href="{{ url_for('painel_admin', secao='turmas') }}">Gerenciar turmas</a></div></section></section></div><script>function mostrarExperimentais(){const lista=document.getElementById('detalhes-experimentais');if(!lista)return;const abrir=lista.style.display!=='block';lista.style.display=abrir?'block':'none';if(abrir)lista.scrollIntoView({behavior:'smooth',block:'start'});}</script>
+<style>
+  .indicador-clicavel { display:flex; flex-direction:column; text-decoration:none; color:inherit; cursor:pointer; }
+  #detalhes-experimentais { display:none !important; }
+  #detalhes-experimentais:target { display:block !important; }
+</style>
+<div class="gestao-layout">
+  <aside class="gestao-menu">
+    <p class="gestao-marca">ARENA <span>ALPHA</span></p><small>GESTÃO ESPORTIVA</small>
+    <nav>
+      <a class="ativo" href="{{ url_for('painel_admin', secao='inicio') }}">⌂ Início</a>
+      <a href="{{ url_for('painel_admin', secao='alunos') }}">👤 Alunos</a>
+      <a href="{{ url_for('painel_admin', secao='experimentais') }}">🏐 Aula experimental</a>
+      <a href="{{ url_for('painel_admin', secao='turmas') }}">👥 Turmas</a>
+      <a href="{{ url_for('painel_admin', secao='reservas') }}">⚽ Locação</a>
+      <a href="{{ url_for('painel_admin', secao='pagamentos') }}">R$ Financeiro</a>
+      <a href="{{ url_for('painel_admin', secao='whatsapp') }}">💬 WhatsApp</a>
+      <a href="{{ url_for('painel_admin', secao='administracao') }}">⚙ Administração</a>
+    </nav>
+    <form method="post" action="{{ url_for('sair_admin') }}"><button>Sair do painel</button></form>
+  </aside>
+  <section class="gestao-conteudo">
+    <p class="selo">PAINEL DE CONTROLE</p><h1>Visão geral</h1>
+    <div class="indicadores">
+      <article><b>{{ alunos|length }}</b><span>Alunos ativos</span></article>
+      <article><b>{{ turmas|length }}</b><span>Turmas</span></article>
+      <article><b>{{ reservas|length }}</b><span>Reservas recentes</span></article>
+      <a class="indicador-clicavel" href="#detalhes-experimentais"><b>{{ experimentais_agendadas|default(0) }}</b><span>Aulas experimentais agendadas</span><small>Clique para ver detalhes</small></a>
+    </div>
+
+    <section id="detalhes-experimentais" class="historico">
+      <div class="historico-titulo"><div><p class="selo">AULAS EXPERIMENTAIS</p><h2>Agendamentos por dia e horário</h2></div><a class="link-botao" href="#calendario-mensal">Fechar</a></div>
+      {% for grupo in grupos_experimentais|default([]) %}
+      <article class="grupo-experimental"><h3>📅 {{ grupo.data }} · {{ grupo.horario }}</h3><p><strong>Turma:</strong> {{ grupo.turma }}</p><ul>{% for participante in grupo.participantes %}<li><strong>{{ participante.nome }}</strong> · {{ participante.telefone }}</li>{% endfor %}</ul></article>
+      {% else %}<p class="vazio">Não há aulas experimentais futuras agendadas.</p>{% endfor %}
+    </section>
+
+    <section id="calendario-mensal" class="historico calendario-painel">
+      <h2>Calendário · {{ mes_calendario }}</h2>
+      <div class="dias-calendario"><b>Seg</b><b>Ter</b><b>Qua</b><b>Qui</b><b>Sex</b><b>Sáb</b><b>Dom</b>{% for semana in calendario_mes %}{% for dia in semana %}<span class="dia-agenda {% if dia == hoje %}hoje{% endif %}">{% if dia %}<strong>{{ dia }}</strong>{% for item in agenda_mensal.get(dia, []) %}<small>{{ item }}</small>{% endfor %}{% endif %}</span>{% endfor %}{% endfor %}</div>
+    </section>
+    <section class="historico"><h2>Ações rápidas</h2><div class="acoes"><a class="botao" href="{{ url_for('painel_admin', secao='alunos') }}">Cadastrar aluno</a><a class="botao secundario" href="{{ url_for('painel_admin', secao='turmas') }}">Gerenciar turmas</a></div></section>
+  </section>
+</div>
 {% endblock %}
