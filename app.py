@@ -4,6 +4,7 @@ import calendar
 import json
 import hmac
 import hashlib
+import unicodedata
 from io import BytesIO
 from functools import wraps
 from datetime import date, datetime, timedelta
@@ -101,6 +102,18 @@ def turmas_abertas():
         return []
 
 
+def modalidade_para_exibicao(modalidade):
+    texto = "".join(
+        caractere for caractere in unicodedata.normalize("NFD", str(modalidade or "").lower())
+        if unicodedata.category(caractere) != "Mn"
+    )
+    if "fut" in texto and "volei" in texto:
+        return "Futvôlei"
+    if "volei" in texto:
+        return "Vôlei de areia"
+    return str(modalidade or "Modalidade não informada")
+
+
 def turmas_experimentais_abertas():
     """Repete os próximos encontros de cada turma por até 30 dias."""
     limite = date.today() + timedelta(days=30)
@@ -112,6 +125,7 @@ def turmas_experimentais_abertas():
             continue
         while data_aula <= limite:
             opcao = dict(turma)
+            opcao["modalidade"] = modalidade_para_exibicao(turma.get("modalidade"))
             opcao["data_agendamento"] = data_aula.strftime("%d/%m/%Y")
             resultado.append(opcao)
             data_aula += timedelta(days=7)
