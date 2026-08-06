@@ -163,13 +163,14 @@ def organizar_experimentais(experimentais):
             continue
         turma = aula.get("turma") or aula.get("esporte") or "Turma não informada"
         horario = aula.get("horario") or "Horário não informado"
-        chave = (data_aula, horario, turma)
+        modalidade = modalidade_para_exibicao(aula.get("esporte"))
+        chave = (data_aula, horario, turma, modalidade)
         grupos.setdefault(chave, []).append(aula)
     resultado = []
-    for (data_aula, horario, turma), participantes in sorted(grupos.items(), key=lambda item: (item[0][0], item[0][1], item[0][2])):
+    for (data_aula, horario, turma, modalidade), participantes in sorted(grupos.items(), key=lambda item: (item[0][0], item[0][1], item[0][2])):
         resultado.append({
             "data": data_aula.strftime("%d/%m/%Y"), "horario": horario,
-            "turma": turma, "participantes": sorted(participantes, key=lambda item: item["nome"].lower()),
+            "turma": turma, "modalidade": modalidade, "participantes": sorted(participantes, key=lambda item: item["nome"].lower()),
         })
     return sum(len(grupo["participantes"]) for grupo in resultado), resultado
 
