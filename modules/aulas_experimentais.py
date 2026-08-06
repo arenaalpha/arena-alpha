@@ -43,3 +43,11 @@ class AulasExperimentais:
     def limpar_historico(self):
         with conectar() as banco:
             banco.execute("DELETE FROM aulas_experimentais")
+
+    def limpar_vencidas(self):
+        """Remove automaticamente os agendamentos cuja data já passou."""
+        with conectar() as banco:
+            resultado = banco.execute(
+                "DELETE FROM aulas_experimentais WHERE data < ?", (date.today().isoformat(),)
+            )
+        return resultado.rowcount

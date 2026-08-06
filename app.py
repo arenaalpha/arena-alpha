@@ -414,6 +414,7 @@ def exige_admin(funcao):
 @app.before_request
 def preparar_banco():
     criar_tabelas()
+    AulasExperimentais().limpar_vencidas()
 
 
 @app.get("/")
