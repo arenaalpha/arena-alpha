@@ -488,8 +488,23 @@ def painel_admin():
                     modalidade = modalidade_para_exibicao(turma.get("modalidade"))
                     itens.append(f"{turma['nome']} · {modalidade}")
             agenda_mensal[numero] = itens
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_painel.html"
-    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
+    agenda_experimentais_mensal = {}
+    for aula in painel.get("experimentais", []):
+        texto_data = str(aula.get("data") or "")
+        try:
+            data_aula = datetime.strptime(texto_data, "%Y-%m-%d").date()
+        except ValueError:
+            try:
+                data_aula = datetime.strptime(texto_data, "%d/%m/%Y").date()
+            except ValueError:
+                continue
+        if data_aula.year != hoje.year or data_aula.month != hoje.month:
+            continue
+        primeiro_nome = str(aula.get("nome") or "Participante").strip().split()[0]
+        turma = aula.get("turma") or aula.get("esporte") or "Turma não informada"
+        agenda_experimentais_mensal.setdefault(data_aula.day, []).append({"nome": primeiro_nome, "turma": turma})
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_painel.html"
+    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 
 @app.post("/admin/acao")
