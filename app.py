@@ -490,6 +490,8 @@ def painel_admin():
             agenda_mensal[numero] = itens
     agenda_experimentais_mensal = {}
     for aula in painel.get("experimentais", []):
+        if not aula.get("confirmacao_enviada"):
+            continue
         texto_data = str(aula.get("data") or "")
         try:
             data_aula = datetime.strptime(texto_data, "%Y-%m-%d").date()
