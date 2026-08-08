@@ -27,6 +27,19 @@ class Turmas(Repositorio):
         with conectar() as banco:
             banco.execute("UPDATE turmas SET status_aula = ?, aviso_aula = ? WHERE id = ?", (status, aviso.strip(), turma_id))
 
+    def atualizar_configuracao(self, turma_id, nome, modalidade, descricao, dia_semana, dia_semana_2, horario, professor, valor_1x, valor_2x, valor_diaria):
+        valores = (float(valor_1x or 0), float(valor_2x or 0), float(valor_diaria or 0))
+        if any(valor < 0 for valor in valores):
+            raise ValueError("Os valores da turma não podem ser negativos.")
+        with conectar() as banco:
+            banco.execute(
+                """UPDATE turmas SET nome=?, modalidade=?, descricao=?, dia_semana=?, dia_semana_2=?, horario=?, professor=?, valor_1x=?, valor_2x=?, valor_diaria=? WHERE id=?""",
+                (nome.strip(), modalidade.strip(), descricao.strip(), dia_semana.strip(), dia_semana_2.strip(), horario.strip(), professor.strip(), *valores, turma_id),
+            )
+            for frequencia, valor in (("1x%", valores[0]), ("2x%", valores[1]), ("Diaria%", valores[2])):
+                if valor > 0:
+                    banco.execute("""UPDATE alunos SET valor_plano=? WHERE id IN (SELECT aluno_id FROM matriculas_turma WHERE turma_id=?) AND frequencia LIKE ?""", (valor, turma_id, frequencia))
+
     def vincular_aluno(self, aluno_id, turma_id, dia_treino):
         with conectar() as banco:
             aluno = banco.execute("SELECT nome, frequencia FROM alunos WHERE id = ?", (aluno_id,)).fetchone()

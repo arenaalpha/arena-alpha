@@ -179,7 +179,7 @@ def consultar_painel_local():
     if banco_online():
         with conectar() as banco:
             alunos = banco.execute("SELECT a.*, (SELECT m.turma_id FROM matriculas_turma m WHERE m.aluno_id = a.id ORDER BY m.id LIMIT 1) AS turma_id FROM alunos a ORDER BY a.nome").fetchall()
-            turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
+            turmas = banco.execute("SELECT id, nome, modalidade, descricao, dia_semana, dia_semana_2, horario, professor, valor_1x, valor_2x, valor_diaria, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
             reservas = banco.execute("SELECT id, cliente, whatsapp, data, horario, tipo_locacao, valor, status FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
             despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
@@ -258,6 +258,9 @@ def enviar_acao_admin(acao, dados):
         if acao == "status_turma":
             Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
             return {"mensagem": "Status da aula atualizado."}
+        if acao == "editar_turma":
+            Turmas().atualizar_configuracao(int(dados["turma_id"]), dados["nome"], dados["modalidade"], dados.get("descricao", ""), dados["dia_semana"], dados.get("dia_semana_2", ""), dados["horario"], dados.get("professor", ""), dados.get("valor_1x", 0), dados.get("valor_2x", 0), dados.get("valor_diaria", 0))
+            return {"mensagem": "Turma, descrição e valores atualizados."}
         if acao == "pagamento":
             resultado = Pagamentos().registrar_mensalidade(int(dados["aluno_id"]), data_do_formulario(dados["data_pagamento"]))
             return {"mensagem": f"Pagamento registrado: {resultado['status']}."}
@@ -505,7 +508,7 @@ def painel_admin():
         primeiro_nome = str(aula.get("nome") or "Participante").strip().split()[0]
         turma = aula.get("turma") or aula.get("esporte") or "Turma não informada"
         agenda_experimentais_mensal.setdefault(data_aula.day, []).append({"nome": primeiro_nome, "turma": turma})
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
 
 

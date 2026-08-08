@@ -122,6 +122,10 @@ def _criar_postgres():
         for sql in tabelas: banco.execute(sql)
         banco.execute("ALTER TABLE agenda ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pendente'")
         banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS turma TEXT")
+        banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS descricao TEXT")
+        banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS valor_1x REAL")
+        banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS valor_2x REAL")
+        banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS valor_diaria REAL")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante BYTEA")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_nome TEXT")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_tipo TEXT")
@@ -156,7 +160,7 @@ def _criar_sqlite():
         alunos = {"data_nascimento":"TEXT","cpf":"TEXT","endereco":"TEXT","esporte":"TEXT","frequencia":"TEXT","valor_plano":"REAL","como_conheceu":"TEXT","restricoes_alimentares":"TEXT","problema_saude":"TEXT","necessidades_especiais":"TEXT","menor_idade":"TEXT","responsavel_nome":"TEXT","responsavel_cpf":"TEXT","responsavel_parentesco":"TEXT","autorizacao_imagem":"TEXT","data_inscricao":"TEXT","dia_vencimento":"INTEGER","dia_semana":"TEXT","whatsapp":"TEXT"}
         for nome, tipo in alunos.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE alunos ADD COLUMN {nome} {tipo}")
-        for tabela, colunas in (("turmas", {"dia_semana":"TEXT","dia_semana_2":"TEXT","status_aula":"TEXT DEFAULT 'Normal'","aviso_aula":"TEXT"}), ("agenda", {"tipo_locacao":"TEXT","duracao_horas":"INTEGER","valor":"REAL","whatsapp":"TEXT","status":"TEXT DEFAULT 'Pendente'"}), ("pagamentos", {"aluno_id":"INTEGER","data_vencimento":"TEXT","valor_original":"REAL","desconto":"REAL","pago_em":"TEXT","status":"TEXT"})):
+        for tabela, colunas in (("turmas", {"dia_semana":"TEXT","dia_semana_2":"TEXT","status_aula":"TEXT DEFAULT 'Normal'","aviso_aula":"TEXT","descricao":"TEXT","valor_1x":"REAL","valor_2x":"REAL","valor_diaria":"REAL"}), ("agenda", {"tipo_locacao":"TEXT","duracao_horas":"INTEGER","valor":"REAL","whatsapp":"TEXT","status":"TEXT DEFAULT 'Pendente'"}), ("pagamentos", {"aluno_id":"INTEGER","data_vencimento":"TEXT","valor_original":"REAL","desconto":"REAL","pago_em":"TEXT","status":"TEXT"})):
             existentes = {linha["name"] for linha in banco.execute(f"PRAGMA table_info({tabela})").fetchall()}
             for nome, tipo in colunas.items():
                 if nome not in existentes: banco.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
