@@ -114,6 +114,16 @@ def modalidade_para_exibicao(modalidade):
     return str(modalidade or "Modalidade não informada")
 
 
+def valor_da_turma(turma, frequencia, valor_padrao):
+    """Usa os valores configurados na turma; mantém o preço antigo enquanto ela não for configurada."""
+    campo = "valor_1x" if str(frequencia).startswith("1x") else "valor_2x" if str(frequencia).startswith("2x") else "valor_diaria"
+    try:
+        valor = float(turma[campo] or 0)
+    except (KeyError, TypeError, ValueError):
+        valor = 0
+    return valor if valor > 0 else valor_padrao
+
+
 def turmas_experimentais_abertas():
     """Repete os próximos encontros de cada turma por até 30 dias."""
     limite = date.today() + timedelta(days=30)
@@ -281,13 +291,14 @@ def enviar_acao_admin(acao, dados):
             if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
                 raise ValueError("Preencha todos os campos obrigatorios do cadastro.")
             planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
-            valor = planos.get(dados["esporte"], {}).get(dados["frequencia"])
+            valor = next((preco for plano, preco in planos.get(dados["esporte"], {}).items() if dados["frequencia"].startswith(plano.split(" - ")[0])), None)
             if valor is None: raise ValueError("Escolha uma frequencia valida para o esporte.")
+            turma = next((item for item in Turmas().listar() if item["id"] == int(dados["turma_id"])), None)
+            if turma is None: raise ValueError("Turma selecionada nao encontrada.")
+            valor = valor_da_turma(turma, dados["frequencia"], valor)
             valores = {campo: str(dados.get(campo, "")).strip() for campo in Alunos.campos}
             valores.update(telefone=dados["whatsapp"], whatsapp=dados["whatsapp"], modalidade=dados["esporte"], valor_plano=valor, data_inscricao=date.today().isoformat(), dia_vencimento=date.today().day)
             aluno_id = Alunos().cadastrar(**valores)
-            turma = next((item for item in Turmas().listar() if item["id"] == int(dados["turma_id"])), None)
-            if turma is None: raise ValueError("Turma selecionada nao encontrada.")
             Turmas().vincular_aluno(aluno_id, turma["id"], turma["dia_semana"] if dados["frequencia"].startswith("1x") else "Todos os dias da turma")
             return {"mensagem": "Aluno cadastrado."}
         if acao == "editar_aluno":
@@ -604,9 +615,10 @@ def inscricao():
                 raise ValueError("Escolha uma turma aberta e um horário disponível.")
             dados = {campo: request.form.get(campo, "") for campo in Alunos.campos}
             planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
-            valor = planos.get(dados["esporte"], {}).get(dados["frequencia"])
+            valor = next((preco for plano, preco in planos.get(dados["esporte"], {}).items() if dados["frequencia"].startswith(plano.split(" - ")[0])), None)
             if valor is None:
                 raise ValueError("Escolha uma frequência válida para o esporte.")
+            valor = valor_da_turma(turma, dados["frequencia"], valor)
             dados.update(telefone=dados["whatsapp"], modalidade=dados["esporte"], valor_plano=valor, data_inscricao=date.today().isoformat(), dia_vencimento=date.today().day)
             inscricao_id = Inscricoes().criar(dados, int(turma["id"]))
         except (KeyError, ValueError) as erro:
