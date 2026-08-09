@@ -620,10 +620,12 @@ def meu_portal():
     if aulas is None:
         aulas = aulas_matriculadas_local(aluno["id"])
     valor_pix, vencimento_pix, desconto_pix = valor_pix_mensalidade(aluno, pagamentos)
+    codigo_pix_mensalidade = codigo_pix(valor_pix, f"ALUNO{aluno['id']}") if valor_pix > 0 else ""
     return render_template(
         "portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=aulas,
         situacao_pagamento=situacao_pagamento_portal(aluno, pagamentos), desconto_volei=tem_desconto_volei(aluno),
         valor_pix=valor_pix, vencimento_pix=vencimento_pix, desconto_pix=desconto_pix,
+        codigo_pix_mensalidade=codigo_pix_mensalidade,
     )
 
 
