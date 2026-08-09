@@ -369,7 +369,7 @@ def enviar_acao_admin(acao, dados):
             with conectar() as banco:
                 professor = banco.execute("SELECT nome FROM professores WHERE id = ?", (int(dados["professor_id"]),)).fetchone()
                 if professor is None: raise ValueError("Professor não encontrado.")
-                banco.execute("UPDATE turmas SET professor = ? WHERE id = ?", (professor["nome"], int(dados["turma_id"])))
+                banco.execute("INSERT INTO professor_turmas (professor_id, turma_id) VALUES (?, ?) ON CONFLICT (professor_id, turma_id) DO NOTHING", (int(dados["professor_id"]), int(dados["turma_id"])))
             return {"mensagem": "Professor vinculado à turma."}
         if acao == "novo_aluno":
             obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
@@ -588,7 +588,7 @@ def painel_professor():
     if not professor_id: return redirect(url_for("professor_login"))
     with conectar() as banco:
         professor = banco.execute("SELECT * FROM professores WHERE id = ?", (professor_id,)).fetchone()
-        turmas = banco.execute("SELECT * FROM turmas WHERE professor = ? ORDER BY horario", (professor["nome"],)).fetchall() if professor else []
+        turmas = banco.execute("SELECT t.* FROM turmas t JOIN professor_turmas pt ON pt.turma_id = t.id WHERE pt.professor_id = ? ORDER BY t.horario", (professor_id,)).fetchall() if professor else []
         ids = [turma["id"] for turma in turmas]
         alunos = []
         for turma_id in ids:

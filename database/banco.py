@@ -104,6 +104,7 @@ def _criar_postgres():
     tabelas = (
         "CREATE TABLE IF NOT EXISTS alunos (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,telefone TEXT,modalidade TEXT,data_nascimento TEXT,cpf TEXT,endereco TEXT,esporte TEXT,frequencia TEXT,valor_plano REAL,como_conheceu TEXT,restricoes_alimentares TEXT,problema_saude TEXT,necessidades_especiais TEXT,menor_idade TEXT,responsavel_nome TEXT,responsavel_cpf TEXT,responsavel_parentesco TEXT,autorizacao_imagem TEXT,data_inscricao TEXT,dia_vencimento INTEGER,dia_semana TEXT,whatsapp TEXT)",
         "CREATE TABLE IF NOT EXISTS professores (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,telefone TEXT,especialidade TEXT)",
+        "CREATE TABLE IF NOT EXISTS professor_turmas (professor_id INTEGER NOT NULL,turma_id INTEGER NOT NULL,UNIQUE(professor_id,turma_id))",
         "CREATE TABLE IF NOT EXISTS quadras (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS turmas (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,horario TEXT,professor TEXT,modalidade TEXT,dia_semana TEXT,dia_semana_2 TEXT,status_aula TEXT DEFAULT 'Normal',aviso_aula TEXT)",
         "CREATE TABLE IF NOT EXISTS agenda (id SERIAL PRIMARY KEY,quadra TEXT NOT NULL,data TEXT NOT NULL,horario TEXT NOT NULL,cliente TEXT NOT NULL,tipo_locacao TEXT,duracao_horas INTEGER,valor REAL,whatsapp TEXT,status TEXT DEFAULT 'Pendente')",
@@ -143,6 +144,7 @@ def _criar_sqlite():
     tabelas = (
         "CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,telefone TEXT,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS professores (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,telefone TEXT,especialidade TEXT)",
+        "CREATE TABLE IF NOT EXISTS professor_turmas (professor_id INTEGER NOT NULL,turma_id INTEGER NOT NULL,UNIQUE(professor_id,turma_id))",
         "CREATE TABLE IF NOT EXISTS quadras (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS turmas (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,horario TEXT,professor TEXT,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS agenda (id INTEGER PRIMARY KEY AUTOINCREMENT,quadra TEXT NOT NULL,data TEXT NOT NULL,horario TEXT NOT NULL,cliente TEXT NOT NULL,status TEXT DEFAULT 'Pendente')",
