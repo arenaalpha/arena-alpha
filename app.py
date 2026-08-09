@@ -598,8 +598,15 @@ def painel_admin():
         primeiro_nome = str(aula.get("nome") or "Participante").strip().split()[0]
         turma = aula.get("turma") or aula.get("esporte") or "Turma não informada"
         agenda_experimentais_mensal.setdefault(data_aula.day, []).append({"nome": primeiro_nome, "turma": turma})
+    reservas_pendentes = [item for item in painel.get("reservas", []) if (item.get("status") or "Pendente") == "Pendente"]
+    avisos_pendentes = {
+        "experimentais": len(painel.get("experimentais_pendentes", [])),
+        "inscricoes": len(painel.get("inscricoes", [])),
+        "reservas": len(reservas_pendentes),
+    }
+    avisos_total = sum(avisos_pendentes.values())
     modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
-    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), **painel)
+    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
 
 
 @app.post("/admin/acao")
