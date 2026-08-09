@@ -337,6 +337,11 @@ def enviar_acao_admin(acao, dados):
         if acao == "cancelar_rifa":
             with conectar() as banco: banco.execute("DELETE FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (dados.get("lote", ""),))
             return {"mensagem": "Solicitacao da rifa removida."}
+        if acao == "liberar_numero_rifa":
+            numero = int(dados["numero"])
+            with conectar() as banco:
+                banco.execute("DELETE FROM rifa_numeros WHERE numero = ?", (numero,))
+            return {"mensagem": f"Numero {numero:03d} liberado para a rifa."}
         if acao == "excluir_pagamento":
             Pagamentos().excluir(int(dados["pagamento_id"]))
             return {"mensagem": "Pagamento excluido."}
