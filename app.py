@@ -721,6 +721,8 @@ def inscricao():
             if turma is None:
                 raise ValueError("Escolha uma turma aberta e um horário disponível.")
             dados = {campo: request.form.get(campo, "") for campo in Alunos.campos}
+            if modalidade_para_exibicao(turma["modalidade"]) != modalidade_para_exibicao(dados["esporte"]):
+                raise ValueError("Escolha uma turma da modalidade selecionada.")
             planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
             valor = next((preco for plano, preco in planos.get(dados["esporte"], {}).items() if dados["frequencia"].startswith(plano.split(" - ")[0])), None)
             if valor is None:
