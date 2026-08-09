@@ -90,6 +90,26 @@ def valor_pix_mensalidade(aluno, pagamentos, referencia=None):
     return valor, vencimento, 0
 
 
+def proxima_fatura_pix(aluno, pagamentos):
+    """Retorna a proxima mensalidade que pode receber um novo Pix.
+
+    O mes ja pago e qualquer fatura vencida ficam apenas no historico.
+    """
+    hoje = date.today()
+    referencia = hoje.replace(day=1)
+    meses_pagos = set()
+    for pagamento in pagamentos or []:
+        pago_em = pagamento.get("pago_em") if isinstance(pagamento, dict) else pagamento["pago_em"]
+        if pago_em and len(str(pago_em)) >= 7:
+            meses_pagos.add(str(pago_em)[:7])
+    while True:
+        vencimento = Pagamentos()._vencimento_do_mes(aluno["dia_vencimento"], referencia)
+        if referencia.strftime("%Y-%m") not in meses_pagos and hoje <= vencimento:
+            return referencia
+        ano, mes = referencia.year + (referencia.month == 12), 1 if referencia.month == 12 else referencia.month + 1
+        referencia = date(ano, mes, 1)
+
+
 def encaminhar_para_banco_local(tipo, dados):
     """Envia um registro do portal hospedado ao conector em execucao no PC."""
     if banco_online():
@@ -619,13 +639,14 @@ def meu_portal():
     aulas = None if banco_online() else session.get("aulas_portal")
     if aulas is None:
         aulas = aulas_matriculadas_local(aluno["id"])
-    valor_pix, vencimento_pix, desconto_pix = valor_pix_mensalidade(aluno, pagamentos)
+    referencia_pix = proxima_fatura_pix(aluno, pagamentos)
+    valor_pix, vencimento_pix, desconto_pix = valor_pix_mensalidade(aluno, pagamentos, referencia_pix)
     codigo_pix_mensalidade = codigo_pix(valor_pix, f"ALUNO{aluno['id']}") if valor_pix > 0 else ""
     return render_template(
         "portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=aulas,
         situacao_pagamento=situacao_pagamento_portal(aluno, pagamentos), desconto_volei=tem_desconto_volei(aluno),
         valor_pix=valor_pix, vencimento_pix=vencimento_pix, desconto_pix=desconto_pix,
-        codigo_pix_mensalidade=codigo_pix_mensalidade,
+        codigo_pix_mensalidade=codigo_pix_mensalidade, referencia_pix=referencia_pix,
     )
 
 
@@ -643,7 +664,8 @@ def qr_pix_mensalidade():
             ).fetchall()
     if aluno["valor_plano"] is None or aluno["dia_vencimento"] is None:
         return "Mensalidade indisponivel.", 404
-    valor, _, _ = valor_pix_mensalidade(aluno, pagamentos)
+    referencia_pix = proxima_fatura_pix(aluno, pagamentos)
+    valor, _, _ = valor_pix_mensalidade(aluno, pagamentos, referencia_pix)
     imagem = qrcode.make(codigo_pix(valor, f"ALUNO{aluno['id']}"))
     arquivo = BytesIO()
     imagem.save(arquivo, "PNG")
