@@ -139,6 +139,9 @@ def admin_acao():
         elif acao == "limpar_experimentais":
             AulasExperimentais().limpar_historico()
             mensagem = "Historico de aulas experimentais apagado."
+        elif acao == "excluir_experimental":
+            AulasExperimentais().excluir(int(dados["aula_id"]))
+            mensagem = "Aula experimental excluída."
         elif acao == "limpar_reservas":
             Agenda().limpar_historico()
             mensagem = "Historico de reservas da quadra apagado."

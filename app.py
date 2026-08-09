@@ -308,6 +308,9 @@ def enviar_acao_admin(acao, dados):
         if acao == "limpar_experimentais":
             AulasExperimentais().limpar_historico()
             return {"mensagem": "Historico de aulas experimentais apagado."}
+        if acao == "excluir_experimental":
+            AulasExperimentais().excluir(int(dados["aula_id"]))
+            return {"mensagem": "Aula experimental excluída."}
         if acao == "confirmar_experimental":
             AulasExperimentais().marcar_confirmacao(int(dados["aula_id"]))
             return {"mensagem": "Aula experimental confirmada."}

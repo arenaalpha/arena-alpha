@@ -44,6 +44,12 @@ class AulasExperimentais:
         with conectar() as banco:
             banco.execute("DELETE FROM aulas_experimentais")
 
+    def excluir(self, identificador):
+        with conectar() as banco:
+            resultado = banco.execute("DELETE FROM aulas_experimentais WHERE id = ?", (identificador,))
+        if resultado.rowcount == 0:
+            raise ValueError("Aula experimental não encontrada.")
+
     def limpar_vencidas(self):
         """Remove automaticamente os agendamentos cuja data já passou."""
         with conectar() as banco:
