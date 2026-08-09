@@ -269,6 +269,7 @@ def consultar_painel_local():
             experimentais = banco.execute("SELECT id, nome, telefone, esporte, data, horario, turma, confirmacao_enviada FROM aulas_experimentais ORDER BY data, horario, id").fetchall()
             modalidades = Modalidades().listar()
             professores = banco.execute("SELECT id, nome, telefone, especialidade, endereco, usuario FROM professores ORDER BY nome").fetchall()
+            professor_turmas = banco.execute("SELECT pt.professor_id, pt.turma_id, p.nome AS professor, t.nome AS turma, t.modalidade, t.horario FROM professor_turmas pt JOIN professores p ON p.id=pt.professor_id JOIN turmas t ON t.id=pt.turma_id ORDER BY p.nome, t.horario").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
         financeiro = Financeiro()
         atrasados, status_por_aluno = [], {}
@@ -289,7 +290,7 @@ def consultar_painel_local():
                 item = dict(aula)
                 item["data_exibicao"] = data_aula.strftime("%d/%m/%Y")
                 experimentais_pendentes.append(item)
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -373,6 +374,9 @@ def enviar_acao_admin(acao, dados):
                 if professor is None: raise ValueError("Professor não encontrado.")
                 banco.execute("INSERT INTO professor_turmas (professor_id, turma_id) VALUES (?, ?) ON CONFLICT (professor_id, turma_id) DO NOTHING", (int(dados["professor_id"]), int(dados["turma_id"])))
             return {"mensagem": "Professor vinculado à turma."}
+        if acao == "remover_vinculo_professor":
+            with conectar() as banco: banco.execute("DELETE FROM professor_turmas WHERE professor_id = ? AND turma_id = ?", (int(dados["professor_id"]), int(dados["turma_id"])))
+            return {"mensagem": "Vínculo removido."}
         if acao == "novo_aluno":
             obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
             if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
@@ -590,7 +594,7 @@ def painel_professor():
     if not professor_id: return redirect(url_for("professor_login"))
     with conectar() as banco:
         professor = banco.execute("SELECT * FROM professores WHERE id = ?", (professor_id,)).fetchone()
-        turmas = banco.execute("SELECT t.* FROM turmas t JOIN professor_turmas pt ON pt.turma_id = t.id WHERE pt.professor_id = ? ORDER BY t.horario", (professor_id,)).fetchall() if professor else []
+        turmas = banco.execute("SELECT DISTINCT t.* FROM turmas t LEFT JOIN professor_turmas pt ON pt.turma_id = t.id WHERE pt.professor_id = ? OR t.professor = ? ORDER BY t.horario", (professor_id, professor["nome"])).fetchall() if professor else []
         ids = [turma["id"] for turma in turmas]
         alunos = []
         for turma_id in ids:
@@ -604,7 +608,12 @@ def acao_professor_aula():
     if not professor_id: return redirect(url_for("professor_login"))
     with conectar() as banco:
         professor = banco.execute("SELECT nome FROM professores WHERE id = ?", (professor_id,)).fetchone()
-        turma = banco.execute("SELECT id FROM turmas WHERE id = ? AND professor = ?", (int(request.form["turma_id"]), professor["nome"])).fetchone() if professor else None
+        turma = banco.execute(
+            """SELECT DISTINCT t.id FROM turmas t
+               LEFT JOIN professor_turmas pt ON pt.turma_id = t.id
+               WHERE t.id = ? AND (pt.professor_id = ? OR t.professor = ?)""",
+            (int(request.form["turma_id"]), professor_id, professor["nome"]),
+        ).fetchone() if professor else None
     if turma is None:
         flash("Você não tem permissão para alterar esta turma.", "erro")
     else:
