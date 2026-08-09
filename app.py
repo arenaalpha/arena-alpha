@@ -922,7 +922,7 @@ def rifa():
                 for numero in numeros:
                     banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?)", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
             session["rifa_lote"] = lote
-            return redirect(url_for("pagamento_rifa"))
+            return redirect(url_for("pagamento_rifa", lote=lote))
         except ValueError as erro:
             flash(str(erro), "erro")
     return render_template("rifa.html", ocupados=ocupados)
@@ -930,17 +930,17 @@ def rifa():
 
 @app.get("/rifa/pagamento")
 def pagamento_rifa():
-    lote = session.get("rifa_lote")
+    lote = request.args.get("lote") or session.get("rifa_lote")
     if not lote: return redirect(url_for("rifa"))
     with conectar() as banco:
         itens = banco.execute("SELECT numero, nome, whatsapp FROM rifa_numeros WHERE lote = ? AND status = 'Pendente' ORDER BY numero", (lote,)).fetchall()
     if not itens: return redirect(url_for("rifa"))
-    return render_template("rifa_pagamento.html", itens=itens, valor=len(itens) * 10, codigo_pix_rifa=codigo_pix(len(itens) * 10, "RIFA" + lote[:12]))
+    return render_template("rifa_pagamento.html", itens=itens, lote=lote, valor=len(itens) * 10, codigo_pix_rifa=codigo_pix(len(itens) * 10, "RIFA" + lote[:12]))
 
 
 @app.get("/rifa/pix/qr")
 def qr_pix_rifa():
-    lote = session.get("rifa_lote")
+    lote = request.args.get("lote") or session.get("rifa_lote")
     if not lote: return redirect(url_for("rifa"))
     with conectar() as banco: quantidade = banco.execute("SELECT COUNT(*) AS quantidade FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (lote,)).fetchone()["quantidade"]
     imagem = qrcode.make(codigo_pix(quantidade * 10, "RIFA" + lote[:12]))
