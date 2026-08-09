@@ -682,6 +682,7 @@ def painel_admin():
         "experimentais": len(painel.get("experimentais_pendentes", [])),
         "inscricoes": len(painel.get("inscricoes", [])),
         "reservas": len(reservas_pendentes),
+        "rifa": len(painel.get("rifa_pendentes", [])),
     }
     avisos_total = sum(avisos_pendentes.values())
     modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
