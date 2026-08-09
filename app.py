@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import qrcode
+
 from flask import Flask, flash, redirect, render_template, request, session, url_for, send_file
 from werkzeug.security import check_password_hash
 
@@ -32,9 +34,60 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
+# A chave Pix e publica por natureza. Pode ser alterada no Render pela variavel
+# PIX_NUBANK_CHAVE, sem mudar o codigo do portal.
+PIX_NUBANK_CHAVE = os.environ.get("PIX_NUBANK_CHAVE", "ef3a3543-0c49-44be-b4a7-966448eb9193")
+PIX_BENEFICIARIO = os.environ.get("PIX_BENEFICIARIO", "ARENA ALPHA")
+PIX_CIDADE = os.environ.get("PIX_CIDADE", "RIO DE JANEIRO")
+
 
 def banco_online():
     return os.environ.get("DATABASE_URL", "").startswith(("postgres://", "postgresql://"))
+
+
+def campo_pix(identificador, valor):
+    texto = str(valor)
+    return f"{identificador}{len(texto):02d}{texto}"
+
+
+def crc16_pix(texto):
+    """CRC-16/CCITT-FALSE exigido pelo padrao Pix Copia e Cola."""
+    crc = 0xFFFF
+    for caractere in texto.encode("utf-8"):
+        crc ^= caractere << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return f"{crc:04X}"
+
+
+def codigo_pix(valor, identificador="***"):
+    """Gera um Pix com o valor definido para a mensalidade atual."""
+    chave = PIX_NUBANK_CHAVE.strip()
+    if not chave:
+        raise ValueError("A chave Pix da Arena ainda nao foi configurada.")
+    conta = campo_pix("00", "BR.GOV.BCB.PIX") + campo_pix("01", chave)
+    nome = PIX_BENEFICIARIO.strip().upper()[:25] or "ARENA ALPHA"
+    cidade = PIX_CIDADE.strip().upper()[:15] or "RIO DE JANEIRO"
+    referencia = "".join(c for c in str(identificador).upper() if c.isalnum())[:25] or "***"
+    corpo = (
+        campo_pix("00", "01") + campo_pix("26", conta) + campo_pix("52", "0000")
+        + campo_pix("53", "986") + campo_pix("54", f"{float(valor):.2f}")
+        + campo_pix("58", "BR") + campo_pix("59", nome) + campo_pix("60", cidade)
+        + campo_pix("62", campo_pix("05", referencia)) + "6304"
+    )
+    return corpo + crc16_pix(corpo)
+
+
+def valor_pix_mensalidade(aluno, pagamentos, referencia=None):
+    """Aplica a regra de desconto antes de montar a cobranca Pix."""
+    referencia = referencia or date.today()
+    valor = float(aluno["valor_plano"] or 0)
+    frequencia = (aluno["frequencia"] or "").lower()
+    esporte = unicodedata.normalize("NFKD", aluno["esporte"] or "").encode("ascii", "ignore").decode("ascii").lower()
+    vencimento = Pagamentos()._vencimento_do_mes(aluno["dia_vencimento"], referencia)
+    if esporte == "volei de areia" and frequencia.startswith("2x") and len(pagamentos or []) >= 1 and referencia <= vencimento:
+        return max(valor - 20, 0), vencimento, 20
+    return valor, vencimento, 0
 
 
 def encaminhar_para_banco_local(tipo, dados):
@@ -560,10 +613,34 @@ def meu_portal():
     aulas = None if banco_online() else session.get("aulas_portal")
     if aulas is None:
         aulas = aulas_matriculadas_local(aluno["id"])
+    valor_pix, vencimento_pix, desconto_pix = valor_pix_mensalidade(aluno, pagamentos)
     return render_template(
         "portal_conta.html", aluno=aluno, pagamentos=pagamentos, aulas=aulas,
         situacao_pagamento=situacao_pagamento_portal(aluno, pagamentos), desconto_volei=tem_desconto_volei(aluno),
+        valor_pix=valor_pix, vencimento_pix=vencimento_pix, desconto_pix=desconto_pix,
     )
+
+
+@app.get("/portal/pix/qr")
+def qr_pix_mensalidade():
+    """Entrega o QR Code somente para o aluno que estiver logado."""
+    aluno = aluno_do_portal()
+    if not aluno:
+        return redirect(url_for("portal"))
+    pagamentos = session.get("pagamentos_portal") if not banco_online() else None
+    if pagamentos is None:
+        with conectar() as banco:
+            pagamentos = banco.execute(
+                "SELECT * FROM pagamentos WHERE aluno_id = ? ORDER BY id DESC", (aluno["id"],)
+            ).fetchall()
+    if aluno["valor_plano"] is None or aluno["dia_vencimento"] is None:
+        return "Mensalidade indisponivel.", 404
+    valor, _, _ = valor_pix_mensalidade(aluno, pagamentos)
+    imagem = qrcode.make(codigo_pix(valor, f"ALUNO{aluno['id']}"))
+    arquivo = BytesIO()
+    imagem.save(arquivo, "PNG")
+    arquivo.seek(0)
+    return send_file(arquivo, mimetype="image/png", download_name="pix-mensalidade-arena-alpha.png")
 
 
 @app.post("/portal/sair")
