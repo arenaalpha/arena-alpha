@@ -363,8 +363,10 @@ def enviar_acao_admin(acao, dados):
             Modalidades().criar(dados.get("nome", ""))
             return {"mensagem": "Modalidade criada e disponível para novas turmas."}
         if acao == "novo_professor":
-            Professores().cadastrar(dados["nome"], dados.get("telefone", ""), dados.get("especialidade", ""), dados.get("endereco", ""), dados.get("usuario", "prof"), dados.get("senha", "12345"))
-            return {"mensagem": "Professor cadastrado."}
+            professor_id = Professores().cadastrar(dados["nome"], dados.get("telefone", ""), dados.get("especialidade", ""), dados.get("endereco", ""), "", "12345")
+            with conectar() as banco:
+                professor = banco.execute("SELECT usuario FROM professores WHERE id = ?", (professor_id,)).fetchone()
+            return {"mensagem": f"Professor cadastrado. Usuário: {professor['usuario']} · senha inicial: 12345."}
         if acao == "vincular_professor":
             with conectar() as banco:
                 professor = banco.execute("SELECT nome FROM professores WHERE id = ?", (int(dados["professor_id"]),)).fetchone()
