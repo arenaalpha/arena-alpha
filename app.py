@@ -469,6 +469,12 @@ def aluno_do_portal():
         ).fetchone()
 
 
+def cpf_para_acesso(valor):
+    """Normaliza CPFs antigos que foram salvos sem o zero inicial."""
+    cpf = somente_numeros(valor)
+    return cpf.zfill(11) if len(cpf) in (10, 11) else cpf
+
+
 def exige_admin(funcao):
     @wraps(funcao)
     def protegida(*args, **kwargs):
@@ -493,7 +499,7 @@ def inicio():
 @app.route("/portal", methods=["GET", "POST"])
 def portal():
     if request.method == "POST":
-        cpf = somente_numeros(request.form.get("cpf"))
+        cpf = cpf_para_acesso(request.form.get("cpf"))
         if len(cpf) != 11:
             flash("Informe um CPF válido com 11 números.", "erro")
         else:
@@ -506,7 +512,7 @@ def portal():
                 return redirect(url_for("meu_portal"))
             with conectar() as banco:
                 alunos = banco.execute("SELECT * FROM alunos WHERE cpf IS NOT NULL").fetchall()
-                aluno = next((item for item in alunos if somente_numeros(item["cpf"]) == cpf), None)
+                aluno = next((item for item in alunos if cpf_para_acesso(item["cpf"]) == cpf), None)
                 if aluno:
                     session.clear()
                     session["aluno_portal_id"] = aluno["id"]
