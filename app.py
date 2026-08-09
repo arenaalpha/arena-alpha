@@ -742,7 +742,7 @@ def pagamento_inscricao(inscricao_id):
         flash("Abra o pagamento logo após enviar sua inscrição.", "erro")
         return redirect(url_for("inscricao"))
     with conectar() as banco:
-        inscricao = banco.execute("SELECT id, nome, status, comprovante_status FROM inscricoes_portal WHERE id = ?", (inscricao_id,)).fetchone()
+        inscricao = banco.execute("SELECT id, nome, valor_plano, status, comprovante_status FROM inscricoes_portal WHERE id = ?", (inscricao_id,)).fetchone()
     if inscricao is None or inscricao["status"] != "Pendente":
         flash("Esta inscrição não está mais disponível para pagamento.", "erro")
         return redirect(url_for("inscricao"))
@@ -762,7 +762,29 @@ def pagamento_inscricao(inscricao_id):
                     banco.execute("UPDATE inscricoes_portal SET comprovante = ?, comprovante_nome = ?, comprovante_tipo = ?, comprovante_status = ? WHERE id = ?", (conteudo, arquivo.filename[:180], arquivo.mimetype, "Enviado", inscricao_id))
                 flash("Comprovante enviado. Aguarde a confirmação da Arena pelo WhatsApp.", "sucesso")
                 return redirect(url_for("inicio"))
-    return render_template("pagamento_inscricao.html", inscricao=inscricao)
+    valor_pix = float(inscricao["valor_plano"] or 0)
+    return render_template(
+        "pagamento_inscricao.html", inscricao=inscricao, valor_pix=valor_pix,
+        codigo_pix_inscricao=codigo_pix(valor_pix, f"INSCRICAO{inscricao_id}") if valor_pix > 0 else "",
+    )
+
+
+@app.get("/inscricao/<int:inscricao_id>/pix/qr")
+def qr_pix_inscricao(inscricao_id):
+    """QR Code Nubank da inscricao que acabou de ser enviada."""
+    if session.get("inscricao_pagamento_id") != inscricao_id:
+        return redirect(url_for("inscricao"))
+    with conectar() as banco:
+        inscricao = banco.execute(
+            "SELECT valor_plano, status FROM inscricoes_portal WHERE id = ?", (inscricao_id,)
+        ).fetchone()
+    if inscricao is None or inscricao["status"] != "Pendente" or not inscricao["valor_plano"]:
+        return "Pagamento indisponivel.", 404
+    imagem = qrcode.make(codigo_pix(float(inscricao["valor_plano"]), f"INSCRICAO{inscricao_id}"))
+    arquivo = BytesIO()
+    imagem.save(arquivo, "PNG")
+    arquivo.seek(0)
+    return send_file(arquivo, mimetype="image/png", download_name="pix-inscricao-arena-alpha.png")
 
 
 @app.get("/inscricao/<int:inscricao_id>/confirmacao")
