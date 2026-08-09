@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Pagamento da rifa | Arena Alpha{% endblock %}
+{% block content %}
+<section class="cabecalho"><p class="selo">RIFA ARENA ALPHA</p><h1>Finalize pelo Pix</h1><p>Após o pagamento, aguarde a confirmação da Arena pelo WhatsApp.</p></section>
+<section class="historico pix-mensalidade"><h2>Total: R$ {{ '%.2f'|format(valor)|replace('.', ',') }}</h2><p>Números escolhidos: {% for item in itens %}<strong>{{ '%03d'|format(item.numero) }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}</p><img src="{{ url_for('qr_pix_rifa') }}" alt="QR Code Pix da rifa" width="260"><label>Pix Copia e Cola<textarea class="codigo-pix" readonly>{{ codigo_pix_rifa }}</textarea></label><button class="botao" type="button" onclick="navigator.clipboard.writeText(document.querySelector('.codigo-pix').value);this.textContent='Código Pix copiado!'">Copiar código Pix</button><p class="nota">O nome e o WhatsApp serão confirmados pela Arena antes de seus números aparecerem na tabela oficial.</p></section>
+{% endblock %}

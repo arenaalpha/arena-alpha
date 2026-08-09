@@ -5,6 +5,7 @@ import json
 import hmac
 import hashlib
 import unicodedata
+import uuid
 from io import BytesIO
 from functools import wraps
 from datetime import date, datetime, timedelta
@@ -16,7 +17,7 @@ import qrcode
 from flask import Flask, flash, redirect, render_template, request, session, url_for, send_file
 from werkzeug.security import check_password_hash
 
-from database.banco import conectar, criar_tabelas
+from database.banco import conectar, criar_tabelas, normalizar_telefone_brasil
 from modules.agenda import Agenda
 from modules.aulas_experimentais import AulasExperimentais
 from modules.alunos import Alunos
@@ -271,6 +272,7 @@ def consultar_painel_local():
             professores = banco.execute("SELECT id, nome, telefone, especialidade, endereco, usuario FROM professores ORDER BY nome").fetchall()
             professor_turmas = banco.execute("SELECT pt.professor_id, pt.turma_id, p.nome AS professor, t.nome AS turma, t.modalidade, t.horario FROM professor_turmas pt JOIN professores p ON p.id=pt.professor_id JOIN turmas t ON t.id=pt.turma_id ORDER BY p.nome, t.horario").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
+            rifa_numeros = banco.execute("SELECT numero, nome, whatsapp, lote, status, criado_em FROM rifa_numeros ORDER BY numero").fetchall()
         financeiro = Financeiro()
         atrasados, status_por_aluno = [], {}
         for item in Pagamentos().situacao_atual():
@@ -290,7 +292,8 @@ def consultar_painel_local():
                 item = dict(aula)
                 item["data_exibicao"] = data_aula.strftime("%d/%m/%Y")
                 experimentais_pendentes.append(item)
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
+        rifa_lista = [dict(item) for item in rifa_numeros]
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "atrasados": atrasados, "financeiro_geral": financeiro.resumo_geral(), "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -324,6 +327,16 @@ def enviar_acao_admin(acao, dados):
         if acao == "confirmar_inscricao":
             nome = Inscricoes().confirmar(int(dados["inscricao_id"]))
             return {"mensagem": f"Inscrição de {nome} confirmada e matrícula criada."}
+        if acao == "confirmar_rifa":
+            lote = dados.get("lote", "")
+            with conectar() as banco:
+                registro = banco.execute("SELECT nome, whatsapp, COUNT(*) AS quantidade FROM rifa_numeros WHERE lote = ? AND status = 'Pendente' GROUP BY nome, whatsapp", (lote,)).fetchone()
+                if registro is None: raise ValueError("Esta solicitacao da rifa nao esta mais pendente.")
+                banco.execute("UPDATE rifa_numeros SET status = 'Confirmado', confirmado_em = ? WHERE lote = ? AND status = 'Pendente'", (datetime.now().isoformat(timespec="seconds"), lote))
+            return {"mensagem": "Numeros da rifa confirmados.", "nome": registro["nome"], "whatsapp": registro["whatsapp"], "quantidade": registro["quantidade"]}
+        if acao == "cancelar_rifa":
+            with conectar() as banco: banco.execute("DELETE FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (dados.get("lote", ""),))
+            return {"mensagem": "Solicitacao da rifa removida."}
         if acao == "excluir_pagamento":
             Pagamentos().excluir(int(dados["pagamento_id"]))
             return {"mensagem": "Pagamento excluido."}
@@ -630,7 +643,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
@@ -671,7 +684,7 @@ def painel_admin():
         "reservas": len(reservas_pendentes),
     }
     avisos_total = sum(avisos_pendentes.values())
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
 
 
@@ -883,6 +896,50 @@ def comprovante_inscricao(inscricao_id):
         flash("Esta inscrição ainda não enviou comprovante.", "erro")
         return redirect(url_for("painel_admin", secao="whatsapp"))
     return send_file(BytesIO(bytes(comprovante["comprovante"])), mimetype=comprovante["comprovante_tipo"] or "application/octet-stream", as_attachment=False, download_name=comprovante["comprovante_nome"] or "comprovante")
+
+
+@app.route("/rifa", methods=["GET", "POST"])
+def rifa():
+    with conectar() as banco:
+        ocupados = {item["numero"]: item["status"] for item in banco.execute("SELECT numero, status FROM rifa_numeros").fetchall()}
+    if request.method == "POST":
+        try:
+            nome = request.form.get("nome", "").strip()
+            whatsapp = normalizar_telefone_brasil(request.form.get("whatsapp", ""))
+            numeros = sorted({int(numero) for numero in request.form.getlist("numeros")})
+            if not nome or len(whatsapp) not in (12, 13): raise ValueError("Informe nome e WhatsApp válidos.")
+            if not numeros or any(numero < 1 or numero > 100 for numero in numeros): raise ValueError("Escolha ao menos um número da rifa.")
+            indisponiveis = [str(numero).zfill(3) for numero in numeros if numero in ocupados]
+            if indisponiveis: raise ValueError("Estes números não estão mais disponíveis: " + ", ".join(indisponiveis))
+            lote = uuid.uuid4().hex
+            with conectar() as banco:
+                for numero in numeros:
+                    banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?)", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
+            session["rifa_lote"] = lote
+            return redirect(url_for("pagamento_rifa"))
+        except ValueError as erro:
+            flash(str(erro), "erro")
+    return render_template("rifa.html", ocupados=ocupados)
+
+
+@app.get("/rifa/pagamento")
+def pagamento_rifa():
+    lote = session.get("rifa_lote")
+    if not lote: return redirect(url_for("rifa"))
+    with conectar() as banco:
+        itens = banco.execute("SELECT numero, nome, whatsapp FROM rifa_numeros WHERE lote = ? AND status = 'Pendente' ORDER BY numero", (lote,)).fetchall()
+    if not itens: return redirect(url_for("rifa"))
+    return render_template("rifa_pagamento.html", itens=itens, valor=len(itens) * 10, codigo_pix_rifa=codigo_pix(len(itens) * 10, "RIFA" + lote[:12]))
+
+
+@app.get("/rifa/pix/qr")
+def qr_pix_rifa():
+    lote = session.get("rifa_lote")
+    if not lote: return redirect(url_for("rifa"))
+    with conectar() as banco: quantidade = banco.execute("SELECT COUNT(*) AS quantidade FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (lote,)).fetchone()["quantidade"]
+    imagem = qrcode.make(codigo_pix(quantidade * 10, "RIFA" + lote[:12]))
+    arquivo = BytesIO(); imagem.save(arquivo, "PNG"); arquivo.seek(0)
+    return send_file(arquivo, mimetype="image/png", download_name="pix-rifa-arena-alpha.png")
 
 
 @app.route("/locacao", methods=["GET", "POST"])
