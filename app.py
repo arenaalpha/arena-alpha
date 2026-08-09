@@ -268,7 +268,7 @@ def consultar_painel_local():
             despesas = banco.execute("SELECT id, descricao, categoria, valor, data FROM despesas ORDER BY id DESC LIMIT 30").fetchall()
             experimentais = banco.execute("SELECT id, nome, telefone, esporte, data, horario, turma, confirmacao_enviada FROM aulas_experimentais ORDER BY data, horario, id").fetchall()
             modalidades = Modalidades().listar()
-            professores = banco.execute("SELECT id, nome, telefone, especialidade FROM professores ORDER BY nome").fetchall()
+            professores = banco.execute("SELECT id, nome, telefone, especialidade, endereco, usuario FROM professores ORDER BY nome").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
         financeiro = Financeiro()
         atrasados, status_por_aluno = [], {}
@@ -362,6 +362,15 @@ def enviar_acao_admin(acao, dados):
         if acao == "nova_modalidade":
             Modalidades().criar(dados.get("nome", ""))
             return {"mensagem": "Modalidade criada e disponível para novas turmas."}
+        if acao == "novo_professor":
+            Professores().cadastrar(dados["nome"], dados.get("telefone", ""), dados.get("especialidade", ""), dados.get("endereco", ""), dados.get("usuario", "prof"), dados.get("senha", "12345"))
+            return {"mensagem": "Professor cadastrado."}
+        if acao == "vincular_professor":
+            with conectar() as banco:
+                professor = banco.execute("SELECT nome FROM professores WHERE id = ?", (int(dados["professor_id"]),)).fetchone()
+                if professor is None: raise ValueError("Professor não encontrado.")
+                banco.execute("UPDATE turmas SET professor = ? WHERE id = ?", (professor["nome"], int(dados["turma_id"])))
+            return {"mensagem": "Professor vinculado à turma."}
         if acao == "novo_aluno":
             obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
             if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
@@ -511,6 +520,7 @@ def exige_admin(funcao):
 @app.before_request
 def preparar_banco():
     criar_tabelas()
+    Professores().garantir_padrao()
     AulasExperimentais().limpar_vencidas()
 
 
@@ -558,6 +568,48 @@ def admin():
             return redirect(url_for("painel_admin"))
         flash("Usuário ou senha incorretos.", "erro")
     return render_template("admin_login.html")
+
+
+@app.route("/professor", methods=["GET", "POST"])
+def professor_login():
+    if request.method == "POST":
+        with conectar() as banco:
+            professor = banco.execute("SELECT * FROM professores WHERE usuario = ?", (request.form.get("usuario", "").strip(),)).fetchone()
+        if professor and professor["senha_hash"] and check_password_hash(professor["senha_hash"], request.form.get("senha", "")):
+            session.clear(); session["professor_id"] = professor["id"]
+            return redirect(url_for("painel_professor"))
+        flash("Usuário ou senha incorretos.", "erro")
+    return render_template("professor_login.html")
+
+
+@app.get("/professor/painel")
+def painel_professor():
+    professor_id = session.get("professor_id")
+    if not professor_id: return redirect(url_for("professor_login"))
+    with conectar() as banco:
+        professor = banco.execute("SELECT * FROM professores WHERE id = ?", (professor_id,)).fetchone()
+        turmas = banco.execute("SELECT * FROM turmas WHERE professor = ? ORDER BY horario", (professor["nome"],)).fetchall() if professor else []
+        ids = [turma["id"] for turma in turmas]
+        alunos = []
+        for turma_id in ids:
+            alunos.extend(Turmas().alunos_da_turma(turma_id))
+    return render_template("professor_painel.html", professor=professor, turmas=turmas, alunos=alunos)
+
+
+@app.post("/professor/aula")
+def acao_professor_aula():
+    professor_id = session.get("professor_id")
+    if not professor_id: return redirect(url_for("professor_login"))
+    with conectar() as banco:
+        professor = banco.execute("SELECT nome FROM professores WHERE id = ?", (professor_id,)).fetchone()
+        turma = banco.execute("SELECT id FROM turmas WHERE id = ? AND professor = ?", (int(request.form["turma_id"]), professor["nome"])).fetchone() if professor else None
+    if turma is None:
+        flash("Você não tem permissão para alterar esta turma.", "erro")
+    else:
+        try: Turmas().atualizar_status_aula(int(request.form["turma_id"]), request.form["status"], request.form.get("aviso", ""))
+        except ValueError as erro: flash(str(erro), "erro")
+        else: flash("Status da aula atualizado.", "sucesso")
+    return redirect(url_for("painel_professor"))
 
 
 @app.get("/admin/painel")
@@ -608,7 +660,7 @@ def painel_admin():
         "reservas": len(reservas_pendentes),
     }
     avisos_total = sum(avisos_pendentes.values())
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
 
 
