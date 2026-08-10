@@ -606,7 +606,7 @@ def aulas_matriculadas_local(aluno_id):
             candidatos.append(proxima_data)
         proxima = min(candidatos)
         aviso = cancelamentos_por_data.get((turma["id"], proxima.isoformat()), "")
-        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": "Aula cancelada" if aviso else "Normal", "aviso_aula": aviso})
+        resultado.append({"id": turma["id"], "nome": f"Turma: {turma['nome']}", "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": "Aula cancelada" if aviso else "Normal", "aviso_aula": aviso})
     return resultado
 
 
