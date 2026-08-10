@@ -924,15 +924,21 @@ def rifa():
             if indisponiveis: raise ValueError("Estes números não estão mais disponíveis: " + ", ".join(indisponiveis))
             lote = uuid.uuid4().hex
             with conectar() as banco:
+                if banco_online():
+                    banco.execute("SELECT pg_advisory_xact_lock(?)", (847221,))
+                ocupados_agora = {item["numero"] for item in banco.execute("SELECT numero FROM rifa_numeros").fetchall()}
+                indisponiveis_agora = [str(numero).zfill(3) for numero in numeros if numero in ocupados_agora]
+                if indisponiveis_agora:
+                    raise ValueError("Estes números acabaram de ser reservados: " + ", ".join(indisponiveis_agora) + ". Escolha outro número.")
                 for numero in numeros:
-                    banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?) ON CONFLICT (numero) DO NOTHING", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
-                reservados = banco.execute("SELECT numero FROM rifa_numeros WHERE lote = ?", (lote,)).fetchall()
-                if len(reservados) != len(numeros):
-                    raise ValueError("Um dos números acabou de ser reservado por outra pessoa. Escolha outro número e tente novamente.")
+                    banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?)", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
             session["rifa_lote"] = lote
             return renderizar_pagamento_rifa(lote)
         except ValueError as erro:
             flash(str(erro), "erro")
+        except Exception:
+            app.logger.exception("Falha ao registrar uma solicitação da rifa")
+            flash("Não foi possível reservar os números agora. Atualize a página e tente novamente.", "erro")
     return render_template("rifa.html", ocupados=ocupados)
 
 
