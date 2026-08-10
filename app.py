@@ -117,7 +117,7 @@ def encaminhar_para_banco_local(tipo, dados):
         if tipo == "aula":
             AulasExperimentais().agendar(**dados)
         elif tipo == "locacao":
-            Agenda().reservar_locacao(**dados)
+            return Agenda().reservar_locacao(**dados, retornar_id=True)
         else:
             raise ValueError("Tipo de registro invalido.")
         return True
@@ -1016,11 +1016,15 @@ def locacao():
             data = data_do_formulario(request.form["data"])
             contato = contato_da_reserva(request.form)
             dados = {"cliente": contato["nome"], "whatsapp": contato["telefone"], "data": data, "tipo_locacao": request.form.get("tipo", ""), "horario": request.form.get("horario", ""), "duracao_horas": request.form.get("duracao", "")}
-            if not encaminhar_para_banco_local("locacao", dados):
-                Agenda().reservar_locacao(**dados)
+            reserva = encaminhar_para_banco_local("locacao", dados)
+            if not reserva:
+                reserva = Agenda().reservar_locacao(**dados, retornar_id=True)
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
+            if isinstance(reserva, tuple):
+                session["locacao_pagamento_id"] = reserva[0]
+                return redirect(url_for("pagamento_locacao", reserva_id=reserva[0]))
             flash("Solicitação recebida! A reserva será confirmada pelo WhatsApp.", "sucesso")
             return redirect(url_for("locacao"))
     return render_template("locacao.html", hoje=date.today().isoformat(), aluno_portal=aluno_do_portal())
@@ -1035,14 +1039,44 @@ def eventos():
             data = data_do_formulario(request.form["data"])
             contato = contato_da_reserva(request.form)
             dados = {"cliente": contato["nome"], "whatsapp": contato["telefone"], "data": data, "tipo_locacao": "Evento - R$ 300,00 (09h as 22h)", "horario": "", "duracao_horas": ""}
-            if not encaminhar_para_banco_local("locacao", dados):
-                Agenda().reservar_locacao(**dados)
+            reserva = encaminhar_para_banco_local("locacao", dados)
+            if not reserva:
+                reserva = Agenda().reservar_locacao(**dados, retornar_id=True)
         except (KeyError, ValueError) as erro:
             flash(str(erro), "erro")
         else:
+            if isinstance(reserva, tuple):
+                session["locacao_pagamento_id"] = reserva[0]
+                return redirect(url_for("pagamento_locacao", reserva_id=reserva[0]))
             flash("Sua reserva entrou na fila. Aguarde a confirmação da Arena pelo WhatsApp.", "sucesso")
             return redirect(url_for("eventos"))
     return render_template("eventos.html", hoje=date.today().isoformat(), aluno_portal=aluno_do_portal())
+
+
+@app.get("/locacao/<int:reserva_id>/pagamento")
+def pagamento_locacao(reserva_id):
+    if session.get("locacao_pagamento_id") != reserva_id:
+        return redirect(url_for("locacao"))
+    with conectar() as banco:
+        reserva = banco.execute("SELECT id, cliente, data, horario, tipo_locacao, valor, status FROM agenda WHERE id = ?", (reserva_id,)).fetchone()
+    if reserva is None:
+        flash("Reserva não encontrada.", "erro")
+        return redirect(url_for("locacao"))
+    reserva = dict(reserva)
+    return render_template("pagamento_locacao.html", reserva=reserva, codigo_pix_locacao=codigo_pix(float(reserva["valor"] or 0), f"LOCACAO{reserva_id}"))
+
+
+@app.get("/locacao/<int:reserva_id>/pix/qr")
+def qr_pix_locacao(reserva_id):
+    if session.get("locacao_pagamento_id") != reserva_id:
+        return redirect(url_for("locacao"))
+    with conectar() as banco:
+        reserva = banco.execute("SELECT valor FROM agenda WHERE id = ?", (reserva_id,)).fetchone()
+    if reserva is None:
+        return redirect(url_for("locacao"))
+    imagem = qrcode.make(codigo_pix(float(reserva["valor"] or 0), f"LOCACAO{reserva_id}"))
+    arquivo = BytesIO(); imagem.save(arquivo, "PNG"); arquivo.seek(0)
+    return send_file(arquivo, mimetype="image/png", download_name="pix-locacao-arena-alpha.png")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Pagamento da locação | Arena Alpha{% endblock %}
+{% block content %}
+<section class="hero"><p class="selo">RESERVA RECEBIDA</p><h1>Finalize pelo Pix Nubank</h1><p>Sua solicitação continua pendente até a confirmação da Arena pelo WhatsApp.</p></section>
+<section class="historico pix-mensalidade"><h2>{{ reserva.tipo_locacao or 'Locação da quadra' }}</h2><p><strong>{{ reserva.data }}</strong> · {{ reserva.horario }}</p><p>Valor: <strong>R$ {{ '%.2f'|format(reserva.valor)|replace('.', ',') }}</strong></p><img src="{{ url_for('qr_pix_locacao', reserva_id=reserva.id) }}" alt="QR Code Pix Nubank da locação" width="240" height="240" loading="lazy"><p><button class="botao secundario" type="button" onclick="copiarPixLocacao()">Copiar código Pix</button></p><textarea id="codigo-pix-locacao" class="codigo-pix" readonly>{{ codigo_pix_locacao }}</textarea><p class="nota">Após pagar, envie o comprovante pelo WhatsApp da Arena. A reserva só será confirmada após a conferência.</p><a class="botao" href="{{ url_for('inicio') }}">Voltar ao portal</a></section>
+<script>function copiarPixLocacao(){const campo=document.getElementById('codigo-pix-locacao');navigator.clipboard.writeText(campo.value).then(()=>alert('Código Pix copiado.')).catch(()=>{campo.select();alert('Copie o código Pix selecionado.')})}</script>
+{% endblock %}

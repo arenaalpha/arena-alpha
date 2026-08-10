@@ -69,7 +69,7 @@ class Agenda(Repositorio):
                 if self._conflita(inicio, fim, inicio_reserva, fim_reserva):
                     raise ValueError(f"Horario indisponivel: ja existe locacao para {reserva['cliente']} ({reserva['horario']}).")
 
-    def reservar_locacao(self, cliente, whatsapp, data, tipo_locacao, horario="", duracao_horas=""):
+    def reservar_locacao(self, cliente, whatsapp, data, tipo_locacao, horario="", duracao_horas="", retornar_id=False):
         try:
             data_locacao = datetime.strptime(data, "%d/%m/%Y").date()
         except ValueError:
@@ -95,11 +95,11 @@ class Agenda(Repositorio):
             raise ValueError("A quadra funciona somente das 09:00 as 22:00.")
         self._verificar_disponibilidade(data_locacao, inicio, fim)
         horario = f"{inicio:%H:%M} as {fim:%H:%M}"
-        super().cadastrar(
+        identificador = super().cadastrar(
             quadra="Quadra Principal", data=data, horario=horario, cliente=cliente,
             tipo_locacao=tipo_locacao, duracao_horas=duracao, valor=valor, whatsapp=normalizar_telefone_brasil(whatsapp), status="Pendente",
         )
-        return valor, horario
+        return (identificador, valor, horario) if retornar_id else (valor, horario)
 
     def confirmar(self, identificador):
         with conectar() as banco:
