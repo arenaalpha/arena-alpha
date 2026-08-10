@@ -98,7 +98,7 @@ class Financeiro:
             "quantidade_despesas": quantidade_despesas,
         }
 
-    def lancamentos_recentes(self, limite=20):
+    def lancamentos_recentes(self, limite=None):
         with conectar() as banco:
             receitas = banco.execute(
                 """SELECT aluno AS descricao, valor, pago_em AS data, 'Receita' AS tipo,
@@ -141,7 +141,7 @@ class Financeiro:
                     pass
             return texto
         itens.sort(key=ordem, reverse=True)
-        return itens[:limite]
+        return itens if limite is None else itens[:limite]
 
     def relatorio(self):
         resumo = self.resumo_mes()
