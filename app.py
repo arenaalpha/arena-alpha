@@ -27,6 +27,7 @@ from modules.professores import Professores
 from modules.turmas import Turmas
 from modules.modalidades import Modalidades
 from modules.inscricoes import Inscricoes
+from modules.parceiros import Parceiros
 
 
 app = Flask(__name__)
@@ -288,6 +289,8 @@ def consultar_painel_local():
             professor_turmas = banco.execute("SELECT pt.professor_id, pt.turma_id, p.nome AS professor, t.nome AS turma, t.modalidade, t.horario FROM professor_turmas pt JOIN professores p ON p.id=pt.professor_id JOIN turmas t ON t.id=pt.turma_id ORDER BY p.nome, t.horario").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
             rifa_numeros = banco.execute("SELECT numero, nome, whatsapp, lote, status, criado_em FROM rifa_numeros ORDER BY numero").fetchall()
+            parceiros = banco.execute("SELECT id, empresa, whatsapp FROM parceiros ORDER BY empresa").fetchall()
+            doacoes_parceiros = banco.execute("SELECT d.id, d.parceiro_id, d.motivo, d.valor, d.data, p.empresa FROM doacoes_parceiros d JOIN parceiros p ON p.id = d.parceiro_id ORDER BY d.data DESC, d.id DESC").fetchall()
         financeiro = Financeiro()
         atrasados, status_por_aluno = [], {}
         for item in Pagamentos().situacao_atual():
@@ -320,13 +323,19 @@ def consultar_painel_local():
                     continue
                 experimentais_acompanhamento.append(item)
         rifa_lista = [dict(item) for item in rifa_numeros]
+        parceiros_lista = [dict(item) for item in parceiros]
+        doacoes_lista = [dict(item) for item in doacoes_parceiros]
+        doacoes_por_parceiro = {item["id"]: [] for item in parceiros_lista}
+        for doacao in doacoes_lista:
+            doacoes_por_parceiro.setdefault(doacao["parceiro_id"], []).append(doacao)
+        total_parceiros = sum(float(item.get("valor") or 0) for item in doacoes_lista)
         rifa_confirmados = [item for item in rifa_lista if item["status"] == "Confirmado"]
         rifa_pagamentos_lista = [dict(item) for item in pagamentos_rifa]
         rifa_financeiro = {"receita": sum(float(item.get("valor") or 0) for item in rifa_pagamentos_lista), "numeros_confirmados": len(rifa_confirmados), "compradores": len({item["lote"] for item in rifa_confirmados}), "pagamentos": rifa_pagamentos_lista}
         financeiro_geral = financeiro.resumo_geral()
         receitas_locacao = float(total_locacao_espaco or 0) + float(total_locacao_horas or 0)
-        financeiro_categorias = {"caixa": financeiro_geral["caixa"] + receitas_locacao, "receitas": financeiro_geral["receitas"] + receitas_locacao, "mensalistas": float(total_mensalistas or 0), "diaristas": float(total_diaristas or 0), "locacao_espaco": float(total_locacao_espaco or 0), "locacao_horas": float(total_locacao_horas or 0), "rifa": rifa_financeiro["receita"]}
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "experimentais_acompanhamento": experimentais_acompanhamento, "experimentais_cancelaveis": experimentais_cancelaveis, "historico_experimentais": sorted(historico_experimentais, key=lambda item: item.get("resultado_em") or "", reverse=True), "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "rifa_financeiro": rifa_financeiro, "financeiro_categorias": financeiro_categorias, "atrasados": atrasados, "financeiro_geral": financeiro_geral, "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
+        financeiro_categorias = {"caixa": financeiro_geral["caixa"] + receitas_locacao + total_parceiros, "receitas": financeiro_geral["receitas"] + receitas_locacao + total_parceiros, "mensalistas": float(total_mensalistas or 0), "diaristas": float(total_diaristas or 0), "locacao_espaco": float(total_locacao_espaco or 0), "locacao_horas": float(total_locacao_horas or 0), "rifa": rifa_financeiro["receita"], "parceiros": total_parceiros}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "experimentais_acompanhamento": experimentais_acompanhamento, "experimentais_cancelaveis": experimentais_cancelaveis, "historico_experimentais": sorted(historico_experimentais, key=lambda item: item.get("resultado_em") or "", reverse=True), "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "rifa_financeiro": rifa_financeiro, "parceiros": parceiros_lista, "doacoes_parceiros": doacoes_lista, "doacoes_por_parceiro": doacoes_por_parceiro, "financeiro_categorias": financeiro_categorias, "atrasados": atrasados, "financeiro_geral": financeiro_geral, "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes(50)}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -354,6 +363,12 @@ def enviar_acao_admin(acao, dados):
         if acao == "resultado_experimental":
             AulasExperimentais().marcar_resultado(int(dados["aula_id"]), dados.get("resultado", ""))
             return {"mensagem": "Resultado da aula experimental registrado."}
+        if acao == "novo_parceiro":
+            Parceiros().criar(dados.get("empresa", ""), dados.get("whatsapp", ""))
+            return {"mensagem": "Empresa parceira cadastrada."}
+        if acao == "nova_doacao_parceiro":
+            Parceiros().registrar_doacao(int(dados["parceiro_id"]), dados.get("motivo", ""), dados.get("valor", ""), dados.get("data", ""))
+            return {"mensagem": "Doação registrada no Financeiro."}
         if acao == "limpar_reservas":
             Agenda().limpar_historico()
             return {"mensagem": "Historico de reservas da quadra apagado."}
@@ -689,7 +704,7 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "parceiros": [], "doacoes_parceiros": [], "doacoes_por_parceiro": {}, "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
@@ -736,7 +751,7 @@ def painel_admin():
         "rifa": len(painel.get("rifa_pendentes", [])),
     }
     avisos_total = sum(avisos_pendentes.values())
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_parceiros.html" if secao == "parceiros" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
     return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
 
 

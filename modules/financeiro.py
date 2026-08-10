@@ -53,6 +53,7 @@ class Financeiro:
             locacoes = banco.execute(
                 "SELECT data, valor FROM agenda WHERE status = 'Confirmada'"
             ).fetchall()
+            doacoes = banco.execute("SELECT data, valor FROM doacoes_parceiros").fetchall()
         receitas_locacao = 0.0
         for locacao in locacoes:
             try:
@@ -64,7 +65,15 @@ class Financeiro:
                     continue
             if data_locacao.strftime("%Y-%m") == mes:
                 receitas_locacao += float(locacao["valor"] or 0)
-        receitas = float(receitas) + receitas_locacao
+        receitas_doacoes = 0.0
+        for doacao in doacoes:
+            try:
+                data_doacao = datetime.strptime(str(doacao["data"]), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if data_doacao.strftime("%Y-%m") == mes:
+                receitas_doacoes += float(doacao["valor"] or 0)
+        receitas = float(receitas) + receitas_locacao + receitas_doacoes
         despesas = float(despesas)
         return {
             "receitas": receitas,
@@ -72,6 +81,7 @@ class Financeiro:
             "saldo": receitas - despesas,
             "pagamentos": quantidade_receitas,
             "locacoes": receitas_locacao,
+            "doacoes_parceiros": receitas_doacoes,
         }
 
     def resumo_geral(self):
@@ -102,6 +112,10 @@ class Financeiro:
                 """SELECT cliente, tipo_locacao, valor, data, horario FROM agenda
                    WHERE status = 'Confirmada'"""
             ).fetchall()
+            doacoes = banco.execute(
+                """SELECT p.empresa, d.motivo, d.valor, d.data FROM doacoes_parceiros d
+                   JOIN parceiros p ON p.id = d.parceiro_id"""
+            ).fetchall()
         itens = [dict(item) for item in receitas] + [dict(item) for item in despesas]
         for locacao in locacoes:
             item = dict(locacao)
@@ -110,6 +124,13 @@ class Financeiro:
                 "descricao": f"{'Evento' if evento else 'Locação por hora'} · {item['cliente']} · {item.get('horario') or '-'}",
                 "valor": item["valor"], "data": item["data"], "tipo": "Receita",
                 "categoria": "Locação de espaço" if evento else "Locação por hora",
+            })
+        for doacao in doacoes:
+            item = dict(doacao)
+            itens.append({
+                "descricao": f"Parceiro · {item['empresa']} · {item['motivo']}",
+                "valor": item["valor"], "data": item["data"], "tipo": "Receita",
+                "categoria": "Doação de parceiro",
             })
         def ordem(item):
             texto = str(item.get("data") or "")
