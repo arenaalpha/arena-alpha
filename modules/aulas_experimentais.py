@@ -41,7 +41,7 @@ class AulasExperimentais:
             banco.execute("UPDATE aulas_experimentais SET confirmacao_enviada = 1 WHERE id = ?", (identificador,))
 
     def marcar_resultado(self, identificador, resultado):
-        opcoes = {"Fez aula - sem inscrição", "Faltou aula experimental"}
+        opcoes = {"Fez aula - sem inscrição", "Faltou aula experimental", "Aula experimental cancelada"}
         if resultado not in opcoes:
             raise ValueError("Resultado da aula experimental inválido.")
         with conectar() as banco:
