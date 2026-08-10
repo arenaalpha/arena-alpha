@@ -330,10 +330,15 @@ def enviar_acao_admin(acao, dados):
         if acao == "confirmar_rifa":
             lote = dados.get("lote", "")
             with conectar() as banco:
-                registro = banco.execute("SELECT nome, whatsapp, COUNT(*) AS quantidade FROM rifa_numeros WHERE lote = ? AND status = 'Pendente' GROUP BY nome, whatsapp", (lote,)).fetchone()
+                itens = banco.execute("SELECT numero, nome, whatsapp FROM rifa_numeros WHERE lote = ? AND status = 'Pendente' ORDER BY numero", (lote,)).fetchall()
+                registro = itens[0] if itens else None
                 if registro is None: raise ValueError("Esta solicitacao da rifa nao esta mais pendente.")
                 banco.execute("UPDATE rifa_numeros SET status = 'Confirmado', confirmado_em = ? WHERE lote = ? AND status = 'Pendente'", (datetime.now().isoformat(timespec="seconds"), lote))
-            return {"mensagem": "Numeros da rifa confirmados.", "nome": registro["nome"], "whatsapp": registro["whatsapp"], "quantidade": registro["quantidade"]}
+                quantidade, valor = len(itens), len(itens) * 10.0
+                numeros = ", ".join(f"{item['numero']:03d}" for item in itens)
+                banco.execute("""INSERT INTO pagamentos (aluno, valor, data, aluno_id, data_vencimento, valor_original, desconto, pago_em, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", (f"Rifa · {registro['nome']} · números {numeros}", valor, date.today().strftime("%d/%m/%Y"), None, None, valor, 0, date.today().isoformat(), "Rifa confirmada"))
+            return {"mensagem": "Numeros da rifa confirmados e lancados no caixa.", "nome": registro["nome"], "whatsapp": registro["whatsapp"], "quantidade": quantidade}
         if acao == "cancelar_rifa":
             with conectar() as banco: banco.execute("DELETE FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (dados.get("lote", ""),))
             return {"mensagem": "Solicitacao da rifa removida."}
@@ -922,25 +927,29 @@ def rifa():
                 for numero in numeros:
                     banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?)", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
             session["rifa_lote"] = lote
-            return redirect(url_for("pagamento_rifa", lote=lote))
+            return renderizar_pagamento_rifa(lote)
         except ValueError as erro:
             flash(str(erro), "erro")
     return render_template("rifa.html", ocupados=ocupados)
 
 
-@app.get("/rifa/pagamento")
-def pagamento_rifa():
-    lote = request.args.get("lote") or session.get("rifa_lote")
-    if not lote: return redirect(url_for("rifa"))
+def renderizar_pagamento_rifa(lote):
     with conectar() as banco:
         itens = banco.execute("SELECT numero, nome, whatsapp FROM rifa_numeros WHERE lote = ? AND status = 'Pendente' ORDER BY numero", (lote,)).fetchall()
     if not itens: return redirect(url_for("rifa"))
     return render_template("rifa_pagamento.html", itens=itens, lote=lote, valor=len(itens) * 10, codigo_pix_rifa=codigo_pix(len(itens) * 10, "RIFA" + lote[:12]))
 
 
+@app.get("/rifa/pagamento")
+@app.get("/rifa/pagamento/<lote>")
+def pagamento_rifa(lote=None):
+    return renderizar_pagamento_rifa(lote or request.args.get("lote") or session.get("rifa_lote"))
+
+
 @app.get("/rifa/pix/qr")
-def qr_pix_rifa():
-    lote = request.args.get("lote") or session.get("rifa_lote")
+@app.get("/rifa/pix/qr/<lote>")
+def qr_pix_rifa(lote=None):
+    lote = lote or request.args.get("lote") or session.get("rifa_lote")
     if not lote: return redirect(url_for("rifa"))
     with conectar() as banco: quantidade = banco.execute("SELECT COUNT(*) AS quantidade FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (lote,)).fetchone()["quantidade"]
     imagem = qrcode.make(codigo_pix(quantidade * 10, "RIFA" + lote[:12]))
