@@ -918,7 +918,7 @@ def rifa():
             nome = request.form.get("nome", "").strip()
             whatsapp = normalizar_telefone_brasil(request.form.get("whatsapp", ""))
             numeros = sorted({int(numero) for numero in request.form.getlist("numeros")})
-            if not nome or len(whatsapp) not in (12, 13): raise ValueError("Informe nome e WhatsApp válidos.")
+            if not nome or len(whatsapp) < 10 or len(whatsapp) > 13: raise ValueError("Informe seu nome e um WhatsApp com DDD válido.")
             if not numeros or any(numero < 1 or numero > 100 for numero in numeros): raise ValueError("Escolha ao menos um número da rifa.")
             indisponiveis = [str(numero).zfill(3) for numero in numeros if numero in ocupados]
             if indisponiveis: raise ValueError("Estes números não estão mais disponíveis: " + ", ".join(indisponiveis))
