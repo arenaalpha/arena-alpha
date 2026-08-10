@@ -155,8 +155,8 @@ def turmas_abertas():
         dias = {"segunda-feira": 0, "terca-feira": 1, "quarta-feira": 2, "quinta-feira": 3, "sexta-feira": 4, "sabado": 5, "domingo": 6}
         hoje, resultado = date.today(), []
         for turma in Turmas().listar():
-            modalidade = (turma["modalidade"] or "").lower().replace("ô", "o")
-            nomes_dias = [(turma["dia_semana"] or "").lower().replace("ç", "c").replace("á", "a"), (turma["dia_semana_2"] or "").lower().replace("ç", "c").replace("á", "a")]
+            modalidade = chave_dia_semana(turma["modalidade"])
+            nomes_dias = [chave_dia_semana(turma["dia_semana"]), chave_dia_semana(turma["dia_semana_2"])]
             indices = [dias[nome] for nome in nomes_dias if nome in dias]
             if "volei" in modalidade and "fut" not in modalidade:
                 indices = [0] if 0 in indices else []
@@ -191,11 +191,23 @@ def modalidade_para_exibicao(modalidade):
 
 
 def chave_dia_semana(valor):
-    """Compara dias do calendário mesmo quando foram cadastrados sem acento."""
-    return "".join(
-        caractere for caractere in unicodedata.normalize("NFD", str(valor or "").lower())
+    """Cria uma chave estável para dias e textos cadastrados com ou sem acento."""
+    texto = str(valor or "").strip().lower()
+    # Também corrige cadastros antigos que ficaram com caracteres embaralhados.
+    for _ in range(2):
+        try:
+            corrigido = texto.encode("latin-1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+        if corrigido == texto:
+            break
+        texto = corrigido
+    texto = "".join(
+        caractere for caractere in unicodedata.normalize("NFD", texto)
         if unicodedata.category(caractere) != "Mn"
     ).strip()
+    dias = ("segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado", "domingo")
+    return next((dia for dia in dias if dia in texto), texto)
 
 
 def valor_da_turma(turma, frequencia, valor_padrao):
@@ -736,7 +748,7 @@ def painel_admin():
         painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "parceiros": [], "doacoes_parceiros": [], "doacoes_por_parceiro": {}, "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
-    nomes_dias = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
+    nomes_dias = ("segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado", "domingo")
     agenda_mensal = {}
     for semana in calendario_mes:
         for numero in semana:
