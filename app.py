@@ -925,7 +925,10 @@ def rifa():
             lote = uuid.uuid4().hex
             with conectar() as banco:
                 for numero in numeros:
-                    banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?)", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
+                    banco.execute("INSERT INTO rifa_numeros (numero, nome, whatsapp, lote, status, criado_em) VALUES (?, ?, ?, ?, 'Pendente', ?) ON CONFLICT (numero) DO NOTHING", (numero, nome, whatsapp, lote, datetime.now().isoformat(timespec="seconds")))
+                reservados = banco.execute("SELECT numero FROM rifa_numeros WHERE lote = ?", (lote,)).fetchall()
+                if len(reservados) != len(numeros):
+                    raise ValueError("Um dos números acabou de ser reservado por outra pessoa. Escolha outro número e tente novamente.")
             session["rifa_lote"] = lote
             return renderizar_pagamento_rifa(lote)
         except ValueError as erro:
