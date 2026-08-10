@@ -820,6 +820,23 @@ def painel_admin():
         primeiro_nome = str(aula.get("nome") or "Participante").strip().split()[0]
         turma = aula.get("turma") or aula.get("esporte") or "Turma não informada"
         agenda_experimentais_mensal.setdefault(data_aula.day, []).append({"nome": primeiro_nome, "turma": turma})
+    agenda_locacao_mensal = {}
+    for reserva in painel.get("reservas", []):
+        if (reserva.get("status") or "Pendente") != "Confirmada":
+            continue
+        texto_data = str(reserva.get("data") or "")
+        try:
+            data_reserva = datetime.strptime(texto_data, "%Y-%m-%d").date()
+        except ValueError:
+            try:
+                data_reserva = datetime.strptime(texto_data, "%d/%m/%Y").date()
+            except ValueError:
+                continue
+        if data_reserva.year != hoje.year or data_reserva.month != hoje.month or data_reserva < hoje:
+            continue
+        tipo = str(reserva.get("tipo_locacao") or "Locação por hora")
+        categoria = "espaco" if "evento" in chave_dia_semana(tipo) else "hora"
+        agenda_locacao_mensal.setdefault(data_reserva.day, []).append({"cliente": reserva.get("cliente") or "Reserva", "horario": reserva.get("horario") or "Dia todo", "tipo": "Espaço" if categoria == "espaco" else "Por hora", "categoria": categoria})
     reservas_pendentes = [item for item in painel.get("reservas", []) if (item.get("status") or "Pendente") == "Pendente"]
     avisos_pendentes = {
         "experimentais": len(painel.get("experimentais_pendentes", [])),
@@ -828,8 +845,8 @@ def painel_admin():
         "rifa": len(painel.get("rifa_pendentes", [])),
     }
     avisos_total = sum(avisos_pendentes.values())
-    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_parceiros.html" if secao == "parceiros" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
-    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, hoje=hoje.day, hoje_iso=hoje.isoformat(), mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
+    modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_parceiros.html" if secao == "parceiros" else "admin_reservas.html" if secao == "reservas" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
+    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, agenda_locacao_mensal=agenda_locacao_mensal, hoje=hoje.day, hoje_iso=hoje.isoformat(), mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
 
 
 @app.post("/admin/acao")
