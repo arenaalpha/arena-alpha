@@ -32,7 +32,6 @@
                 <a class="{{ 'ativo' if secao == 'whatsapp' else '' }}" href="{{ url_for('painel_admin', secao='whatsapp') }}">💬 WhatsApp</a>
                 <a class="menu-rifa {{ 'ativo' if secao == 'rifa' else '' }}" href="{{ url_for('painel_admin', secao='rifa') }}">🎟️ Rifa</a>
                 <a class="{{ 'ativo' if secao == 'parceiros' else '' }}" href="{{ url_for('painel_admin', secao='parceiros') }}">🤝 Parceiros</a>
-                {% for parceiro in parceiros|default([]) %}<a class="menu-parceiro" href="{{ url_for('painel_admin', secao='parceiros') }}#parceiro-{{ parceiro.id }}">{{ parceiro.empresa }}</a>{% endfor %}
                 <a class="{{ 'ativo' if secao == 'administracao' else '' }}" href="{{ url_for('painel_admin', secao='administracao') }}">⚙️ Administração</a>
             `;
         });
