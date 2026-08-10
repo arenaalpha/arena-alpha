@@ -132,6 +132,8 @@ def _criar_postgres():
         for sql in tabelas: banco.execute(sql)
         banco.execute("ALTER TABLE agenda ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pendente'")
         banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS turma TEXT")
+        banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS resultado TEXT")
+        banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS resultado_em TEXT")
         banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS descricao TEXT")
         banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS valor_1x REAL")
         banco.execute("ALTER TABLE turmas ADD COLUMN IF NOT EXISTS valor_2x REAL")
@@ -183,8 +185,9 @@ def _criar_sqlite():
         for nome, tipo in {"endereco":"TEXT", "usuario":"TEXT", "senha_hash":"TEXT"}.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE professores ADD COLUMN {nome} {tipo}")
         existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(aulas_experimentais)").fetchall()}
-        if "turma" not in existentes:
-            banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN turma TEXT")
+        for nome, tipo in {"turma":"TEXT", "resultado":"TEXT", "resultado_em":"TEXT"}.items():
+            if nome not in existentes:
+                banco.execute(f"ALTER TABLE aulas_experimentais ADD COLUMN {nome} {tipo}")
         existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(inscricoes_portal)").fetchall()}
         for nome, tipo in {"comprovante":"BLOB", "comprovante_nome":"TEXT", "comprovante_tipo":"TEXT", "comprovante_status":"TEXT DEFAULT 'Aguardando envio'"}.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE inscricoes_portal ADD COLUMN {nome} {tipo}")

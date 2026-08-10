@@ -40,6 +40,18 @@ class AulasExperimentais:
         with conectar() as banco:
             banco.execute("UPDATE aulas_experimentais SET confirmacao_enviada = 1 WHERE id = ?", (identificador,))
 
+    def marcar_resultado(self, identificador, resultado):
+        opcoes = {"Fez aula - sem inscrição", "Faltou aula experimental"}
+        if resultado not in opcoes:
+            raise ValueError("Resultado da aula experimental inválido.")
+        with conectar() as banco:
+            registro = banco.execute(
+                "UPDATE aulas_experimentais SET resultado = ?, resultado_em = ? WHERE id = ? AND confirmacao_enviada = 1",
+                (resultado, datetime.now().isoformat(timespec="seconds"), identificador),
+            )
+        if registro.rowcount == 0:
+            raise ValueError("Aula experimental não encontrada ou ainda não confirmada.")
+
     def limpar_historico(self):
         with conectar() as banco:
             banco.execute("DELETE FROM aulas_experimentais")
@@ -54,6 +66,6 @@ class AulasExperimentais:
         """Remove automaticamente os agendamentos cuja data já passou."""
         with conectar() as banco:
             resultado = banco.execute(
-                "DELETE FROM aulas_experimentais WHERE data < ?", (date.today().isoformat(),)
+                "DELETE FROM aulas_experimentais WHERE data < ? AND COALESCE(resultado, '') = ''", (date.today().isoformat(),)
             )
         return resultado.rowcount
