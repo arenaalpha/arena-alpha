@@ -597,11 +597,18 @@ def aulas_matriculadas_local(aluno_id):
             continue
         agora = datetime.now()
         horario = str(turma["horario"] or "")
-        inicio = re.search(r"(\d{1,2}):(\d{2})", horario)
+        horarios = re.findall(r"(\d{1,2}):(\d{2})", horario)
+        if len(horarios) >= 2:
+            fim_hora, fim_minuto = map(int, horarios[-1])
+        elif horarios:
+            fim_hora, fim_minuto = map(int, horarios[0])
+            fim_hora = (fim_hora + 1) % 24
+        else:
+            fim_hora = fim_minuto = None
         candidatos = []
         for dia in proximos:
             proxima_data = hoje + timedelta(days=(dia - hoje.weekday()) % 7)
-            if proxima_data == hoje and inicio and (agora.hour, agora.minute) >= (int(inicio.group(1)), int(inicio.group(2))):
+            if proxima_data == hoje and fim_hora is not None and (agora.hour, agora.minute) >= (fim_hora, fim_minuto):
                 proxima_data += timedelta(days=7)
             candidatos.append(proxima_data)
         proxima = min(candidatos)
