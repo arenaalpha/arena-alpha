@@ -25,4 +25,5 @@ html body{background:var(--fundo-pagina)}
 .gestao-menu a.menu-rifa{background:#d59b28;color:#171109;font-weight:900;margin:8px 0}.gestao-menu a.menu-rifa:hover{background:#f1bb4c}
 .gestao-menu a.menu-parceiro{margin-left:10px;width:calc(100% - 10px);padding:7px 10px;font-size:.86rem;color:#e6b94f;border-left:2px solid #8a6725;border-radius:0}
 .cartaz-rifa{display:block;width:min(100%,620px);margin:24px auto;border-radius:18px;box-shadow:0 14px 34px #0005}
+.artes-volei{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.artes-volei img{width:100%;height:auto;border-radius:14px;box-shadow:0 10px 28px #0005}@media(max-width:700px){.artes-volei{grid-template-columns:1fr}}
 .numero-rifa span small{display:block;font-size:.58rem;font-weight:800}.numero-rifa.confirmado span{background:#1769d1;border-color:#0f4f9d;color:#fff;text-decoration:none;box-shadow:0 2px 8px #1769d155}.tabela-rifa span small{display:block;color:#1769d1;font-weight:800;margin-top:3px}.tabela-rifa article.vendido{background:#eaf3ff;border-color:#1769d1}

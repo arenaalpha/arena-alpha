@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Vôlei de Areia | Arena Alpha{% endblock %}
+{% block content %}
+<section class="cabecalho"><p class="selo">🏐 VÔLEI DE AREIA</p><h1>Informações e valores</h1><p>Conheça as turmas, horários e planos de Vôlei de Areia da Arena Alpha.</p></section>
+<section class="historico artes-volei"><img src="{{ url_for('static', filename='banner-volei.png') }}" alt="Aulas de Vôlei de Areia da Arena Alpha: horários e valores"><img src="{{ url_for('static', filename='turmas-volei-de-areia.jpeg') }}" alt="Turmas de Vôlei de Areia da Arena Alpha"></section>
+<div class="acoes"><a class="botao botao-grande" href="{{ url_for('aulas') }}"><b>🏐 Agendar aula experimental</b><small>Escolha sua turma</small></a><a class="botao secundario botao-grande" href="{{ url_for('inscricao') }}"><b>📝 Fazer inscrição</b><small>Cadastre-se na Arena</small></a></div>
+{% endblock %}

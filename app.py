@@ -609,6 +609,11 @@ def inicio():
     return render_template("inicio.html")
 
 
+@app.get("/volei-de-areia")
+def volei_de_areia():
+    return render_template("volei_de_areia.html")
+
+
 @app.route("/portal", methods=["GET", "POST"])
 def portal():
     if request.method == "POST":
