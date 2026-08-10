@@ -288,6 +288,7 @@ def consultar_painel_local():
         with conectar() as banco:
             alunos = banco.execute("SELECT a.*, (SELECT m.turma_id FROM matriculas_turma m WHERE m.aluno_id = a.id ORDER BY m.id LIMIT 1) AS turma_id FROM alunos a ORDER BY a.nome").fetchall()
             turmas = banco.execute("SELECT id, nome, modalidade, descricao, dia_semana, dia_semana_2, horario, professor, valor_1x, valor_2x, valor_diaria, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
+            cancelamentos_aula = banco.execute("SELECT c.id, c.turma_id, c.data, c.aviso, t.nome AS turma, t.modalidade, t.horario FROM cancelamentos_aula c JOIN turmas t ON t.id = c.turma_id ORDER BY c.data, t.horario").fetchall()
             reservas = banco.execute("SELECT id, cliente, whatsapp, data, horario, tipo_locacao, valor, status FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()
             pagamentos_rifa = banco.execute("SELECT id, aluno, valor, pago_em, status FROM pagamentos WHERE status = ? OR aluno LIKE ? ORDER BY id DESC", ("Rifa confirmada", "Rifa %")).fetchall()
@@ -361,7 +362,7 @@ def consultar_painel_local():
         financeiro_geral = financeiro.resumo_geral()
         receitas_locacao = float(total_locacao_espaco or 0) + float(total_locacao_horas or 0)
         financeiro_categorias = {"caixa": financeiro_geral["caixa"] + receitas_locacao + total_parceiros, "receitas": financeiro_geral["receitas"] + receitas_locacao + total_parceiros, "mensalistas": float(total_mensalistas or 0), "diaristas": float(total_diaristas or 0), "locacao_espaco": float(total_locacao_espaco or 0), "locacao_horas": float(total_locacao_horas or 0), "rifa": rifa_financeiro["receita"], "parceiros": total_parceiros}
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "experimentais_acompanhamento": experimentais_acompanhamento, "experimentais_cancelaveis": experimentais_cancelaveis, "historico_experimentais": sorted(historico_experimentais, key=lambda item: item.get("resultado_em") or "", reverse=True), "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "rifa_pagantes": rifa_pagantes, "rifa_sorteio": dict(rifa_sorteio) if rifa_sorteio else None, "rifa_financeiro": rifa_financeiro, "parceiros": parceiros_lista, "doacoes_parceiros": doacoes_lista, "doacoes_por_parceiro": doacoes_por_parceiro, "financeiro_categorias": financeiro_categorias, "atrasados": atrasados, "financeiro_geral": financeiro_geral, "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes()}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "cancelamentos_aula": [dict(item) for item in cancelamentos_aula], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "experimentais_acompanhamento": experimentais_acompanhamento, "experimentais_cancelaveis": experimentais_cancelaveis, "historico_experimentais": sorted(historico_experimentais, key=lambda item: item.get("resultado_em") or "", reverse=True), "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "rifa_pagantes": rifa_pagantes, "rifa_sorteio": dict(rifa_sorteio) if rifa_sorteio else None, "rifa_financeiro": rifa_financeiro, "parceiros": parceiros_lista, "doacoes_parceiros": doacoes_lista, "doacoes_por_parceiro": doacoes_por_parceiro, "financeiro_categorias": financeiro_categorias, "atrasados": atrasados, "financeiro_geral": financeiro_geral, "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes()}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -453,8 +454,23 @@ def enviar_acao_admin(acao, dados):
             Modalidades().excluir(int(dados["modalidade_id"]))
             return {"mensagem": "Modalidade excluída."}
         if acao == "status_turma":
+            if dados["status"] == "Aula cancelada":
+                raise ValueError("Use o cancelamento por data para não cancelar os outros dias da turma.")
             Turmas().atualizar_status_aula(int(dados["turma_id"]), dados["status"], dados.get("aviso", ""))
             return {"mensagem": "Status da aula atualizado."}
+        if acao == "cancelar_aula_dia":
+            data_cancelamento = date.fromisoformat(dados.get("data", ""))
+            if data_cancelamento < date.today():
+                raise ValueError("Escolha uma data de hoje em diante.")
+            if not dados.get("aviso", "").strip():
+                raise ValueError("Digite o motivo do cancelamento.")
+            with conectar() as banco:
+                banco.execute("INSERT INTO cancelamentos_aula (turma_id, data, aviso) VALUES (?, ?, ?) ON CONFLICT (turma_id, data) DO UPDATE SET aviso = EXCLUDED.aviso", (int(dados["turma_id"]), data_cancelamento.isoformat(), dados.get("aviso", "").strip()))
+            return {"mensagem": "Apenas a aula da data escolhida foi cancelada."}
+        if acao == "reativar_aula_dia":
+            with conectar() as banco:
+                banco.execute("DELETE FROM cancelamentos_aula WHERE id = ?", (int(dados["cancelamento_id"]),))
+            return {"mensagem": "Aula da data escolhida reativada."}
         if acao == "editar_turma":
             Turmas().atualizar_configuracao(int(dados["turma_id"]), dados["nome"], dados["modalidade"], dados.get("descricao", ""), dados["dia_semana"], dados.get("dia_semana_2", ""), dados["horario"], dados.get("professor", ""), dados.get("valor_1x", 0), dados.get("valor_2x", 0), dados.get("valor_diaria", 0))
             return {"mensagem": "Turma, descrição e valores atualizados."}
@@ -569,6 +585,8 @@ def aulas_matriculadas_local(aluno_id):
             """SELECT t.*, m.dia_treino FROM matriculas_turma m
                JOIN turmas t ON t.id = m.turma_id WHERE m.aluno_id = ?""", (aluno_id,)
         ).fetchall()
+        cancelamentos = banco.execute("SELECT turma_id, data, aviso FROM cancelamentos_aula").fetchall()
+    cancelamentos_por_data = {(item["turma_id"], item["data"]): item["aviso"] for item in cancelamentos}
     for turma in turmas:
         dias_turma = [turma["dia_semana"], turma["dia_semana_2"]]
         if turma["dia_treino"] != "Todos os dias da turma":
@@ -577,7 +595,8 @@ def aulas_matriculadas_local(aluno_id):
         if not proximos:
             continue
         proxima = hoje + timedelta(days=min((dia - hoje.weekday()) % 7 for dia in proximos))
-        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": turma["status_aula"] or "Normal", "aviso_aula": turma["aviso_aula"] or ""})
+        aviso = cancelamentos_por_data.get((turma["id"], proxima.isoformat()), "")
+        resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": "Aula cancelada" if aviso else "Normal", "aviso_aula": aviso})
     return resultado
 
 
@@ -745,19 +764,18 @@ def painel_admin():
     painel = consultar_painel_local()
     if painel is None:
         flash("O computador da Arena está sem conexão no momento.", "erro")
-        painel = {"alunos": [], "turmas": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "parceiros": [], "doacoes_parceiros": [], "doacoes_por_parceiro": {}, "atrasados": []}
+        painel = {"alunos": [], "turmas": [], "cancelamentos_aula": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "parceiros": [], "doacoes_parceiros": [], "doacoes_por_parceiro": {}, "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
     nomes_dias = ("segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado", "domingo")
     agenda_mensal = {}
+    cancelamentos_por_data = {(item["turma_id"], item["data"]): item for item in painel.get("cancelamentos_aula", [])}
     for semana in calendario_mes:
         for numero in semana:
             if not numero:
                 continue
             data_atual, itens = date(hoje.year, hoje.month, numero), []
             for turma in painel.get("turmas", []):
-                if turma.get("status_aula") == "Aula cancelada":
-                    continue
                 dia_atual = chave_dia_semana(nomes_dias[data_atual.weekday()])
                 dias_da_turma = {
                     chave_dia_semana(turma.get("dia_semana")),
@@ -765,7 +783,9 @@ def painel_admin():
                 }
                 if dia_atual in dias_da_turma:
                     modalidade = modalidade_para_exibicao(turma.get("modalidade"))
-                    itens.append(f"{turma['nome']} · {modalidade}")
+                    cancelamento = cancelamentos_por_data.get((turma["id"], data_atual.isoformat()))
+                    sufixo = " · CANCELADA" if cancelamento else ""
+                    itens.append(f"{turma['nome']} · {modalidade}{sufixo}")
             agenda_mensal[numero] = itens
     agenda_experimentais_mensal = {}
     for aula in painel.get("experimentais", []):
