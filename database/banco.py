@@ -151,7 +151,9 @@ def _criar_postgres():
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_tipo TEXT")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_status TEXT DEFAULT 'Aguardando envio'")
         # A partir desta versão, cancelamentos são feitos por data e não bloqueiam a turma inteira.
-        banco.execute("UPDATE turmas SET status_aula = 'Normal', aviso_aula = '' WHERE status_aula = 'Aula cancelada'")
+        if banco.execute("SELECT chave FROM configuracoes WHERE chave = ?", ("migracao_cancelamento_por_data",)).fetchone() is None:
+            banco.execute("UPDATE turmas SET status_aula = 'Normal', aviso_aula = '' WHERE status_aula = 'Aula cancelada'")
+            banco.execute("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", ("migracao_cancelamento_por_data", "1"))
         for nome in ("Volei de areia", "Futvolei"):
             banco.execute("INSERT INTO modalidades (nome) VALUES (?) ON CONFLICT (nome) DO NOTHING", (nome,))
         if banco.execute("SELECT COUNT(*) AS quantidade FROM quadras").fetchone()["quantidade"] == 0:
@@ -202,7 +204,9 @@ def _criar_sqlite():
         existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(inscricoes_portal)").fetchall()}
         for nome, tipo in {"comprovante":"BLOB", "comprovante_nome":"TEXT", "comprovante_tipo":"TEXT", "comprovante_status":"TEXT DEFAULT 'Aguardando envio'"}.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE inscricoes_portal ADD COLUMN {nome} {tipo}")
-        banco.execute("UPDATE turmas SET status_aula = 'Normal', aviso_aula = '' WHERE status_aula = 'Aula cancelada'")
+        if banco.execute("SELECT chave FROM configuracoes WHERE chave = ?", ("migracao_cancelamento_por_data",)).fetchone() is None:
+            banco.execute("UPDATE turmas SET status_aula = 'Normal', aviso_aula = '' WHERE status_aula = 'Aula cancelada'")
+            banco.execute("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", ("migracao_cancelamento_por_data", "1"))
         for nome in ("Volei de areia", "Futvolei"):
             banco.execute("INSERT INTO modalidades (nome) VALUES (?) ON CONFLICT (nome) DO NOTHING", (nome,))
         if banco.execute("SELECT COUNT(*) FROM quadras").fetchone()[0] == 0:
