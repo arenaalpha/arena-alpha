@@ -5,6 +5,7 @@
   <header class="topo">
     <a class="marca marca-com-logo" href="{{ url_for('inicio') }}"><img src="{{ url_for('static', filename='arena-alpha-logo.jpeg') }}" alt="Logo Arena Alpha"><span>ARENA <em>ALPHA</em></span></a>
     {% if secao is not defined %}<nav>
+      <a class="acesso-painel" href="{{ url_for('painel_admin', secao='inicio') }}">&#128202; Visão geral</a>
       <a class="acesso-painel" href="{{ url_for('portal') }}">🏐 Portal do aluno</a>
       <a class="acesso-painel" href="{{ url_for('professor_login') }}">👨‍🏫 Painel do professor</a>
     </nav>{% endif %}
