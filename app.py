@@ -188,6 +188,14 @@ def modalidade_para_exibicao(modalidade):
     return str(modalidade or "Modalidade não informada")
 
 
+def chave_dia_semana(valor):
+    """Compara dias do calendário mesmo quando foram cadastrados sem acento."""
+    return "".join(
+        caractere for caractere in unicodedata.normalize("NFD", str(valor or "").lower())
+        if unicodedata.category(caractere) != "Mn"
+    ).strip()
+
+
 def valor_da_turma(turma, frequencia, valor_padrao):
     """Usa os valores configurados na turma; mantém o preço antigo enquanto ela não for configurada."""
     campo = "valor_1x" if str(frequencia).startswith("1x") else "valor_2x" if str(frequencia).startswith("2x") else "valor_diaria"
@@ -677,7 +685,12 @@ def painel_admin():
             for turma in painel.get("turmas", []):
                 if turma.get("status_aula") == "Aula cancelada":
                     continue
-                if nomes_dias[data_atual.weekday()] in ((turma.get("dia_semana") or "").lower(), (turma.get("dia_semana_2") or "").lower()):
+                dia_atual = chave_dia_semana(nomes_dias[data_atual.weekday()])
+                dias_da_turma = {
+                    chave_dia_semana(turma.get("dia_semana")),
+                    chave_dia_semana(turma.get("dia_semana_2")),
+                }
+                if dia_atual in dias_da_turma:
                     modalidade = modalidade_para_exibicao(turma.get("modalidade"))
                     itens.append(f"{turma['nome']} · {modalidade}")
             agenda_mensal[numero] = itens
