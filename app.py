@@ -7,6 +7,7 @@ import hashlib
 import unicodedata
 import uuid
 import secrets
+import re
 from io import BytesIO
 from functools import wraps
 from datetime import date, datetime, timedelta
@@ -594,7 +595,16 @@ def aulas_matriculadas_local(aluno_id):
         proximos = [dias[dia] for dia in dias_turma if dia in dias]
         if not proximos:
             continue
-        proxima = hoje + timedelta(days=min((dia - hoje.weekday()) % 7 for dia in proximos))
+        agora = datetime.now()
+        horario = str(turma["horario"] or "")
+        inicio = re.search(r"(\d{1,2}):(\d{2})", horario)
+        candidatos = []
+        for dia in proximos:
+            proxima_data = hoje + timedelta(days=(dia - hoje.weekday()) % 7)
+            if proxima_data == hoje and inicio and (agora.hour, agora.minute) >= (int(inicio.group(1)), int(inicio.group(2))):
+                proxima_data += timedelta(days=7)
+            candidatos.append(proxima_data)
+        proxima = min(candidatos)
         aviso = cancelamentos_por_data.get((turma["id"], proxima.isoformat()), "")
         resultado.append({"id": turma["id"], "nome": turma["nome"], "modalidade": turma["modalidade"], "horario": turma["horario"], "proxima_data": proxima.strftime("%d/%m/%Y"), "status_aula": "Aula cancelada" if aviso else "Normal", "aviso_aula": aviso})
     return resultado
