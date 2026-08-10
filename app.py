@@ -11,6 +11,7 @@ import re
 from io import BytesIO
 from functools import wraps
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -580,7 +581,8 @@ def tem_desconto_volei(aluno):
 def aulas_matriculadas_local(aluno_id):
     """Lista exclusivamente as turmas vinculadas ao aluno no sistema local."""
     dias = {"Segunda-feira": 0, "Terca-feira": 1, "Quarta-feira": 2, "Quinta-feira": 3, "Sexta-feira": 4, "Sabado": 5, "Domingo": 6}
-    hoje, resultado = date.today(), []
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    hoje, resultado = agora.date(), []
     with conectar() as banco:
         turmas = banco.execute(
             """SELECT t.*, m.dia_treino FROM matriculas_turma m
@@ -595,7 +597,6 @@ def aulas_matriculadas_local(aluno_id):
         proximos = [dias[dia] for dia in dias_turma if dia in dias]
         if not proximos:
             continue
-        agora = datetime.now()
         horario = str(turma["horario"] or "")
         horarios = re.findall(r"(\d{1,2}):(\d{2})", horario)
         if len(horarios) >= 2:
