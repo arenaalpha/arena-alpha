@@ -70,11 +70,19 @@ class ConexaoPostgres:
         if sql.lstrip().upper().startswith("INSERT"):
             sequencia = self.conexao.cursor()
             try:
+                # Algumas tabelas usam uma chave informada pelo sistema (como a
+                # rifa) e não possuem sequência. O SAVEPOINT evita que a
+                # tentativa de LASTVAL interrompa a transação recém-gravada.
+                sequencia.execute("SAVEPOINT arena_ultimo_id")
                 sequencia.execute("SELECT LASTVAL()")
                 identificador = sequencia.fetchone()[0]
             except self.driver.Error:
-                pass
+                sequencia.execute("ROLLBACK TO SAVEPOINT arena_ultimo_id")
             finally:
+                try:
+                    sequencia.execute("RELEASE SAVEPOINT arena_ultimo_id")
+                except self.driver.Error:
+                    pass
                 sequencia.close()
         return ResultadoPostgres(cursor, identificador)
     def __enter__(self): return self
