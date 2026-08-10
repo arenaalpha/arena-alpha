@@ -6,6 +6,7 @@ import hmac
 import hashlib
 import unicodedata
 import uuid
+import secrets
 from io import BytesIO
 from functools import wraps
 from datetime import date, datetime, timedelta
@@ -289,6 +290,7 @@ def consultar_painel_local():
             professor_turmas = banco.execute("SELECT pt.professor_id, pt.turma_id, p.nome AS professor, t.nome AS turma, t.modalidade, t.horario FROM professor_turmas pt JOIN professores p ON p.id=pt.professor_id JOIN turmas t ON t.id=pt.turma_id ORDER BY p.nome, t.horario").fetchall()
             inscricoes = banco.execute("SELECT i.*, t.nome AS turma_nome, t.horario AS turma_horario FROM inscricoes_portal i JOIN turmas t ON t.id = i.turma_id WHERE i.status = ? ORDER BY i.id DESC", ("Pendente",)).fetchall()
             rifa_numeros = banco.execute("SELECT numero, nome, whatsapp, lote, status, criado_em FROM rifa_numeros ORDER BY numero").fetchall()
+            rifa_sorteio = banco.execute("SELECT numero, nome, whatsapp, lote, sorteado_em FROM rifa_sorteios ORDER BY id DESC LIMIT 1").fetchone()
             parceiros = banco.execute("SELECT id, empresa, whatsapp FROM parceiros ORDER BY empresa").fetchall()
             doacoes_parceiros = banco.execute("SELECT d.id, d.parceiro_id, d.motivo, d.valor, d.data, p.empresa FROM doacoes_parceiros d JOIN parceiros p ON p.id = d.parceiro_id ORDER BY d.data DESC, d.id DESC").fetchall()
         financeiro = Financeiro()
@@ -337,12 +339,17 @@ def consultar_painel_local():
             doacoes_por_parceiro.setdefault(doacao["parceiro_id"], []).append(doacao)
         total_parceiros = sum(float(item.get("valor") or 0) for item in doacoes_lista)
         rifa_confirmados = [item for item in rifa_lista if item["status"] == "Confirmado"]
+        rifa_pagantes = []
+        for lote in sorted({item["lote"] for item in rifa_confirmados}):
+            numeros_do_lote = sorted(item["numero"] for item in rifa_confirmados if item["lote"] == lote)
+            referencia = next(item for item in rifa_confirmados if item["lote"] == lote)
+            rifa_pagantes.append({"nome": referencia["nome"], "whatsapp": referencia["whatsapp"], "numeros": numeros_do_lote})
         rifa_pagamentos_lista = [dict(item) for item in pagamentos_rifa]
         rifa_financeiro = {"receita": sum(float(item.get("valor") or 0) for item in rifa_pagamentos_lista), "numeros_confirmados": len(rifa_confirmados), "compradores": len({item["lote"] for item in rifa_confirmados}), "pagamentos": rifa_pagamentos_lista}
         financeiro_geral = financeiro.resumo_geral()
         receitas_locacao = float(total_locacao_espaco or 0) + float(total_locacao_horas or 0)
         financeiro_categorias = {"caixa": financeiro_geral["caixa"] + receitas_locacao + total_parceiros, "receitas": financeiro_geral["receitas"] + receitas_locacao + total_parceiros, "mensalistas": float(total_mensalistas or 0), "diaristas": float(total_diaristas or 0), "locacao_espaco": float(total_locacao_espaco or 0), "locacao_horas": float(total_locacao_horas or 0), "rifa": rifa_financeiro["receita"], "parceiros": total_parceiros}
-        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "experimentais_acompanhamento": experimentais_acompanhamento, "experimentais_cancelaveis": experimentais_cancelaveis, "historico_experimentais": sorted(historico_experimentais, key=lambda item: item.get("resultado_em") or "", reverse=True), "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "rifa_financeiro": rifa_financeiro, "parceiros": parceiros_lista, "doacoes_parceiros": doacoes_lista, "doacoes_por_parceiro": doacoes_por_parceiro, "financeiro_categorias": financeiro_categorias, "atrasados": atrasados, "financeiro_geral": financeiro_geral, "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes()}
+        return {"alunos": [dict(item) for item in alunos], "turmas": [dict(item) for item in turmas], "resumo_turmas": resumo_turmas, "alunos_por_turma": alunos_por_turma, "reservas": [dict(item) for item in reservas], "pagamentos": [dict(item) for item in pagamentos], "despesas": [dict(item) for item in despesas], "experimentais": [dict(item) for item in experimentais], "experimentais_agendadas": experimentais_agendadas, "grupos_experimentais": grupos_experimentais, "experimentais_pendentes": experimentais_pendentes, "experimentais_acompanhamento": experimentais_acompanhamento, "experimentais_cancelaveis": experimentais_cancelaveis, "historico_experimentais": sorted(historico_experimentais, key=lambda item: item.get("resultado_em") or "", reverse=True), "modalidades": [dict(item) for item in modalidades], "professores": [dict(item) for item in professores], "professor_turmas": [dict(item) for item in professor_turmas], "inscricoes": [dict(item) for item in inscricoes], "rifa_numeros": rifa_lista, "rifa_pendentes": [item for item in rifa_lista if item["status"] == "Pendente"], "rifa_pagantes": rifa_pagantes, "rifa_sorteio": dict(rifa_sorteio) if rifa_sorteio else None, "rifa_financeiro": rifa_financeiro, "parceiros": parceiros_lista, "doacoes_parceiros": doacoes_lista, "doacoes_por_parceiro": doacoes_por_parceiro, "financeiro_categorias": financeiro_categorias, "atrasados": atrasados, "financeiro_geral": financeiro_geral, "financeiro_mes": financeiro.resumo_mes(), "lancamentos": financeiro.lancamentos_recentes()}
     destino, segredo = os.environ.get("LOCAL_SYNC_URL", "").rstrip("/"), os.environ.get("SYNC_SECRET", "")
     if not destino or not segredo:
         return None
@@ -397,6 +404,16 @@ def enviar_acao_admin(acao, dados):
                 banco.execute("""INSERT INTO pagamentos (aluno, valor, data, aluno_id, data_vencimento, valor_original, desconto, pago_em, registrado_em, status)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (f"Rifa · {registro['nome']} · números {numeros}", valor, date.today().strftime("%d/%m/%Y"), None, None, valor, 0, date.today().isoformat(), datetime.now().isoformat(timespec="seconds"), "Rifa confirmada"))
             return {"mensagem": "Numeros da rifa confirmados e lancados no caixa.", "nome": registro["nome"], "whatsapp": registro["whatsapp"], "quantidade": quantidade}
+        if acao == "sortear_rifa":
+            with conectar() as banco:
+                if banco.execute("SELECT id FROM rifa_sorteios LIMIT 1").fetchone():
+                    raise ValueError("O sorteio desta rifa já foi realizado.")
+                participantes = banco.execute("SELECT numero, nome, whatsapp, lote FROM rifa_numeros WHERE status = 'Confirmado' ORDER BY numero").fetchall()
+                if len(participantes) < 100:
+                    raise ValueError("O sorteio será liberado quando os 100 números estiverem confirmados.")
+                ganhador = secrets.choice(participantes)
+                banco.execute("INSERT INTO rifa_sorteios (numero, nome, whatsapp, lote, sorteado_em) VALUES (?, ?, ?, ?, ?)", (ganhador["numero"], ganhador["nome"], ganhador["whatsapp"], ganhador["lote"], datetime.now().isoformat(timespec="seconds")))
+            return {"mensagem": f"Sorteio realizado! Número {ganhador['numero']:03d} · {ganhador['nome']}."}
         if acao == "cancelar_rifa":
             with conectar() as banco: banco.execute("DELETE FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (dados.get("lote", ""),))
             return {"mensagem": "Solicitacao da rifa removida."}

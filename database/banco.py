@@ -127,6 +127,7 @@ def _criar_postgres():
         "CREATE TABLE IF NOT EXISTS modalidades (id SERIAL PRIMARY KEY,nome TEXT NOT NULL UNIQUE)",
         "CREATE TABLE IF NOT EXISTS inscricoes_portal (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,telefone TEXT,modalidade TEXT,data_nascimento TEXT,cpf TEXT,endereco TEXT,esporte TEXT,frequencia TEXT,valor_plano REAL,como_conheceu TEXT,restricoes_alimentares TEXT,problema_saude TEXT,necessidades_especiais TEXT,menor_idade TEXT,responsavel_nome TEXT,responsavel_cpf TEXT,responsavel_parentesco TEXT,autorizacao_imagem TEXT,data_inscricao TEXT,dia_vencimento INTEGER,whatsapp TEXT,turma_id INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'Pendente',criada_em TEXT)",
         "CREATE TABLE IF NOT EXISTS rifa_numeros (numero INTEGER PRIMARY KEY,nome TEXT NOT NULL,whatsapp TEXT NOT NULL,lote TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'Pendente',criado_em TEXT NOT NULL,confirmado_em TEXT)",
+        "CREATE TABLE IF NOT EXISTS rifa_sorteios (id SERIAL PRIMARY KEY,numero INTEGER NOT NULL,nome TEXT NOT NULL,whatsapp TEXT NOT NULL,lote TEXT NOT NULL,sorteado_em TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS parceiros (id SERIAL PRIMARY KEY,empresa TEXT NOT NULL,whatsapp TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS doacoes_parceiros (id SERIAL PRIMARY KEY,parceiro_id INTEGER NOT NULL,motivo TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL)",
     )
@@ -173,6 +174,7 @@ def _criar_sqlite():
         "CREATE TABLE IF NOT EXISTS modalidades (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL UNIQUE)",
         "CREATE TABLE IF NOT EXISTS inscricoes_portal (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,telefone TEXT,modalidade TEXT,data_nascimento TEXT,cpf TEXT,endereco TEXT,esporte TEXT,frequencia TEXT,valor_plano REAL,como_conheceu TEXT,restricoes_alimentares TEXT,problema_saude TEXT,necessidades_especiais TEXT,menor_idade TEXT,responsavel_nome TEXT,responsavel_cpf TEXT,responsavel_parentesco TEXT,autorizacao_imagem TEXT,data_inscricao TEXT,dia_vencimento INTEGER,whatsapp TEXT,turma_id INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'Pendente',criada_em TEXT)",
         "CREATE TABLE IF NOT EXISTS rifa_numeros (numero INTEGER PRIMARY KEY,nome TEXT NOT NULL,whatsapp TEXT NOT NULL,lote TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'Pendente',criado_em TEXT NOT NULL,confirmado_em TEXT)",
+        "CREATE TABLE IF NOT EXISTS rifa_sorteios (id INTEGER PRIMARY KEY AUTOINCREMENT,numero INTEGER NOT NULL,nome TEXT NOT NULL,whatsapp TEXT NOT NULL,lote TEXT NOT NULL,sorteado_em TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS parceiros (id INTEGER PRIMARY KEY AUTOINCREMENT,empresa TEXT NOT NULL,whatsapp TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS doacoes_parceiros (id INTEGER PRIMARY KEY AUTOINCREMENT,parceiro_id INTEGER NOT NULL,motivo TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL)",
     )
