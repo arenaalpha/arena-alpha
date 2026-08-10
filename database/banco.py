@@ -116,7 +116,7 @@ def _criar_postgres():
         "CREATE TABLE IF NOT EXISTS quadras (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS turmas (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,horario TEXT,professor TEXT,modalidade TEXT,dia_semana TEXT,dia_semana_2 TEXT,status_aula TEXT DEFAULT 'Normal',aviso_aula TEXT)",
         "CREATE TABLE IF NOT EXISTS agenda (id SERIAL PRIMARY KEY,quadra TEXT NOT NULL,data TEXT NOT NULL,horario TEXT NOT NULL,cliente TEXT NOT NULL,tipo_locacao TEXT,duracao_horas INTEGER,valor REAL,whatsapp TEXT,status TEXT DEFAULT 'Pendente')",
-        "CREATE TABLE IF NOT EXISTS pagamentos (id SERIAL PRIMARY KEY,aluno TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL,aluno_id INTEGER,data_vencimento TEXT,valor_original REAL,desconto REAL,pago_em TEXT,status TEXT)",
+        "CREATE TABLE IF NOT EXISTS pagamentos (id SERIAL PRIMARY KEY,aluno TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL,aluno_id INTEGER,data_vencimento TEXT,valor_original REAL,desconto REAL,pago_em TEXT,registrado_em TEXT,status TEXT)",
         "CREATE TABLE IF NOT EXISTS torneios (id SERIAL PRIMARY KEY,nome TEXT NOT NULL,data TEXT,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY,valor TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS despesas (id SERIAL PRIMARY KEY,descricao TEXT NOT NULL,categoria TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL,observacao TEXT)",
@@ -133,6 +133,7 @@ def _criar_postgres():
     with conectar() as banco:
         for sql in tabelas: banco.execute(sql)
         banco.execute("ALTER TABLE agenda ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pendente'")
+        banco.execute("ALTER TABLE pagamentos ADD COLUMN IF NOT EXISTS registrado_em TEXT")
         banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS turma TEXT")
         banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS resultado TEXT")
         banco.execute("ALTER TABLE aulas_experimentais ADD COLUMN IF NOT EXISTS resultado_em TEXT")
@@ -161,7 +162,7 @@ def _criar_sqlite():
         "CREATE TABLE IF NOT EXISTS quadras (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS turmas (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,horario TEXT,professor TEXT,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS agenda (id INTEGER PRIMARY KEY AUTOINCREMENT,quadra TEXT NOT NULL,data TEXT NOT NULL,horario TEXT NOT NULL,cliente TEXT NOT NULL,status TEXT DEFAULT 'Pendente')",
-        "CREATE TABLE IF NOT EXISTS pagamentos (id INTEGER PRIMARY KEY AUTOINCREMENT,aluno TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS pagamentos (id INTEGER PRIMARY KEY AUTOINCREMENT,aluno TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL,registrado_em TEXT)",
         "CREATE TABLE IF NOT EXISTS torneios (id INTEGER PRIMARY KEY AUTOINCREMENT,nome TEXT NOT NULL,data TEXT,modalidade TEXT)",
         "CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY,valor TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS despesas (id INTEGER PRIMARY KEY AUTOINCREMENT,descricao TEXT NOT NULL,categoria TEXT NOT NULL,valor REAL NOT NULL,data TEXT NOT NULL,observacao TEXT)",
@@ -181,7 +182,7 @@ def _criar_sqlite():
         alunos = {"data_nascimento":"TEXT","cpf":"TEXT","endereco":"TEXT","esporte":"TEXT","frequencia":"TEXT","valor_plano":"REAL","como_conheceu":"TEXT","restricoes_alimentares":"TEXT","problema_saude":"TEXT","necessidades_especiais":"TEXT","menor_idade":"TEXT","responsavel_nome":"TEXT","responsavel_cpf":"TEXT","responsavel_parentesco":"TEXT","autorizacao_imagem":"TEXT","data_inscricao":"TEXT","dia_vencimento":"INTEGER","dia_semana":"TEXT","whatsapp":"TEXT"}
         for nome, tipo in alunos.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE alunos ADD COLUMN {nome} {tipo}")
-        for tabela, colunas in (("turmas", {"dia_semana":"TEXT","dia_semana_2":"TEXT","status_aula":"TEXT DEFAULT 'Normal'","aviso_aula":"TEXT","descricao":"TEXT","valor_1x":"REAL","valor_2x":"REAL","valor_diaria":"REAL"}), ("agenda", {"tipo_locacao":"TEXT","duracao_horas":"INTEGER","valor":"REAL","whatsapp":"TEXT","status":"TEXT DEFAULT 'Pendente'"}), ("pagamentos", {"aluno_id":"INTEGER","data_vencimento":"TEXT","valor_original":"REAL","desconto":"REAL","pago_em":"TEXT","status":"TEXT"})):
+        for tabela, colunas in (("turmas", {"dia_semana":"TEXT","dia_semana_2":"TEXT","status_aula":"TEXT DEFAULT 'Normal'","aviso_aula":"TEXT","descricao":"TEXT","valor_1x":"REAL","valor_2x":"REAL","valor_diaria":"REAL"}), ("agenda", {"tipo_locacao":"TEXT","duracao_horas":"INTEGER","valor":"REAL","whatsapp":"TEXT","status":"TEXT DEFAULT 'Pendente'"}), ("pagamentos", {"aluno_id":"INTEGER","data_vencimento":"TEXT","valor_original":"REAL","desconto":"REAL","pago_em":"TEXT","registrado_em":"TEXT","status":"TEXT"})):
             existentes = {linha["name"] for linha in banco.execute(f"PRAGMA table_info({tabela})").fetchall()}
             for nome, tipo in colunas.items():
                 if nome not in existentes: banco.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")

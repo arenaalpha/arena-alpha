@@ -48,12 +48,12 @@ class Pagamentos:
             status = "Pago em dia" if em_dia else "Pago em atraso"
             banco.execute(
                 """INSERT INTO pagamentos
-                   (aluno, valor, data, aluno_id, data_vencimento, valor_original, desconto, pago_em, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (aluno, valor, data, aluno_id, data_vencimento, valor_original, desconto, pago_em, registrado_em, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     aluno["nome"], valor_final, data_pagamento.strftime("%d/%m/%Y"), aluno_id,
                     vencimento.isoformat(), valor_original, desconto,
-                    data_pagamento.isoformat(), status,
+                    data_pagamento.isoformat(), datetime.now().isoformat(timespec="seconds"), status,
                 ),
             )
         return {

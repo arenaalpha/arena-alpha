@@ -394,8 +394,8 @@ def enviar_acao_admin(acao, dados):
                 banco.execute("UPDATE rifa_numeros SET status = 'Confirmado', confirmado_em = ? WHERE lote = ? AND status = 'Pendente'", (datetime.now().isoformat(timespec="seconds"), lote))
                 quantidade, valor = len(itens), len(itens) * 10.0
                 numeros = ", ".join(f"{item['numero']:03d}" for item in itens)
-                banco.execute("""INSERT INTO pagamentos (aluno, valor, data, aluno_id, data_vencimento, valor_original, desconto, pago_em, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", (f"Rifa · {registro['nome']} · números {numeros}", valor, date.today().strftime("%d/%m/%Y"), None, None, valor, 0, date.today().isoformat(), "Rifa confirmada"))
+                banco.execute("""INSERT INTO pagamentos (aluno, valor, data, aluno_id, data_vencimento, valor_original, desconto, pago_em, registrado_em, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (f"Rifa · {registro['nome']} · números {numeros}", valor, date.today().strftime("%d/%m/%Y"), None, None, valor, 0, date.today().isoformat(), datetime.now().isoformat(timespec="seconds"), "Rifa confirmada"))
             return {"mensagem": "Numeros da rifa confirmados e lancados no caixa.", "nome": registro["nome"], "whatsapp": registro["whatsapp"], "quantidade": quantidade}
         if acao == "cancelar_rifa":
             with conectar() as banco: banco.execute("DELETE FROM rifa_numeros WHERE lote = ? AND status = 'Pendente'", (dados.get("lote", ""),))

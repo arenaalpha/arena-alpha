@@ -101,19 +101,19 @@ class Financeiro:
     def lancamentos_recentes(self, limite=None):
         with conectar() as banco:
             receitas = banco.execute(
-                """SELECT aluno AS descricao, valor, pago_em AS data, 'Receita' AS tipo,
+                """SELECT id, aluno AS descricao, valor, pago_em AS data, registrado_em, 'Receita' AS tipo,
                    'Mensalidade' AS categoria FROM pagamentos
                    WHERE pago_em IS NOT NULL"""
             ).fetchall()
             despesas = banco.execute(
-                "SELECT descricao, valor, data, 'Despesa' AS tipo, categoria FROM despesas"
+                "SELECT id, descricao, valor, data, NULL AS registrado_em, 'Despesa' AS tipo, categoria FROM despesas"
             ).fetchall()
             locacoes = banco.execute(
-                """SELECT cliente, tipo_locacao, valor, data, horario FROM agenda
+                """SELECT id, cliente, tipo_locacao, valor, data, horario FROM agenda
                    WHERE status = 'Confirmada'"""
             ).fetchall()
             doacoes = banco.execute(
-                """SELECT p.empresa, d.motivo, d.valor, d.data FROM doacoes_parceiros d
+                """SELECT d.id, p.empresa, d.motivo, d.valor, d.data FROM doacoes_parceiros d
                    JOIN parceiros p ON p.id = d.parceiro_id"""
             ).fetchall()
         itens = [dict(item) for item in receitas] + [dict(item) for item in despesas]
@@ -123,24 +123,41 @@ class Financeiro:
             itens.append({
                 "descricao": f"{'Evento' if evento else 'Locação por hora'} · {item['cliente']} · {item.get('horario') or '-'}",
                 "valor": item["valor"], "data": item["data"], "tipo": "Receita",
-                "categoria": "Locação de espaço" if evento else "Locação por hora",
+                "categoria": "Locação de espaço" if evento else "Locação por hora", "id": item.get("id"), "registrado_em": None,
             })
         for doacao in doacoes:
             item = dict(doacao)
             itens.append({
                 "descricao": f"Parceiro · {item['empresa']} · {item['motivo']}",
                 "valor": item["valor"], "data": item["data"], "tipo": "Receita",
-                "categoria": "Doação de parceiro",
+                "categoria": "Doação de parceiro", "id": item.get("id"), "registrado_em": None,
             })
         def ordem(item):
+            try:
+                return datetime.fromisoformat(str(item.get("registrado_em") or ""))
+            except ValueError:
+                pass
             texto = str(item.get("data") or "")
             for formato in ("%Y-%m-%d", "%d/%m/%Y"):
                 try:
-                    return datetime.strptime(texto, formato).date().isoformat()
+                    return datetime.strptime(texto, formato)
                 except ValueError:
                     pass
-            return texto
+            return datetime.min
         itens.sort(key=ordem, reverse=True)
+        for item in itens:
+            texto = str(item.get("data") or "")
+            item["data_filtro"] = ""
+            for formato in ("%Y-%m-%d", "%d/%m/%Y"):
+                try:
+                    item["data_filtro"] = datetime.strptime(texto, formato).date().isoformat()
+                    break
+                except ValueError:
+                    pass
+            try:
+                item["hora_registro"] = datetime.fromisoformat(str(item.get("registrado_em") or "")).strftime("%H:%M")
+            except ValueError:
+                item["hora_registro"] = ""
         return itens if limite is None else itens[:limite]
 
     def relatorio(self):
