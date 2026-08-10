@@ -10,8 +10,7 @@ import secrets
 import re
 from io import BytesIO
 from functools import wraps
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -581,7 +580,7 @@ def tem_desconto_volei(aluno):
 def aulas_matriculadas_local(aluno_id):
     """Lista exclusivamente as turmas vinculadas ao aluno no sistema local."""
     dias = {"Segunda-feira": 0, "Terca-feira": 1, "Quarta-feira": 2, "Quinta-feira": 3, "Sexta-feira": 4, "Sabado": 5, "Domingo": 6}
-    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    agora = datetime.now(timezone(timedelta(hours=-3)))
     hoje, resultado = agora.date(), []
     with conectar() as banco:
         turmas = banco.execute(
