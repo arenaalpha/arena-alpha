@@ -299,6 +299,10 @@ def consultar_painel_local():
                 atrasados.append({"nome": item["aluno"]["nome"], "whatsapp": item["aluno"]["whatsapp"], "vencimento": item["vencimento"].strftime("%d/%m/%Y")})
         resumo_turmas = Turmas().resumo_financeiro(status_por_aluno)
         alunos_por_turma = {turma["id"]: [dict(aluno) for aluno in Turmas().alunos_da_turma(turma["id"])] for turma in turmas}
+        avisos_por_turma = {
+            str(turma["nome"] or "").strip().casefold(): str(turma["aviso_aula"] or "").strip()
+            for turma in turmas
+        }
         experimentais_agendadas, grupos_experimentais = organizar_experimentais([dict(item) for item in experimentais])
         experimentais_pendentes = []
         experimentais_acompanhamento, experimentais_cancelaveis, historico_experimentais = [], [], []
@@ -310,14 +314,17 @@ def consultar_painel_local():
             if not aula["confirmacao_enviada"] and data_aula >= date.today():
                 item = dict(aula)
                 item["data_exibicao"] = data_aula.strftime("%d/%m/%Y")
+                item["motivo_cancelamento"] = avisos_por_turma.get(str(item.get("turma") or "").strip().casefold(), "")
                 experimentais_pendentes.append(item)
             elif aula["confirmacao_enviada"] and aula["resultado"]:
                 item = dict(aula)
                 item["data_exibicao"] = data_aula.strftime("%d/%m/%Y")
+                item["motivo_cancelamento"] = avisos_por_turma.get(str(item.get("turma") or "").strip().casefold(), "")
                 historico_experimentais.append(item)
             elif aula["confirmacao_enviada"] and data_aula >= date.today():
                 item = dict(aula)
                 item["data_exibicao"] = data_aula.strftime("%d/%m/%Y")
+                item["motivo_cancelamento"] = avisos_por_turma.get(str(item.get("turma") or "").strip().casefold(), "")
                 experimentais_cancelaveis.append(item)
                 if data_aula > date.today():
                     continue
