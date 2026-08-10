@@ -782,6 +782,7 @@ def painel_admin():
         painel = {"alunos": [], "turmas": [], "cancelamentos_aula": [], "resumo_turmas": {}, "alunos_por_turma": {}, "reservas": [], "pagamentos": [], "despesas": [], "experimentais": [], "experimentais_agendadas": 0, "grupos_experimentais": [], "experimentais_pendentes": [], "modalidades": [], "professores": [], "inscricoes": [], "rifa_numeros": [], "rifa_pendentes": [], "parceiros": [], "doacoes_parceiros": [], "doacoes_por_parceiro": {}, "atrasados": []}
     hoje = date.today()
     calendario_mes = calendar.monthcalendar(hoje.year, hoje.month)
+    calendario_mes = [[numero if not numero or numero >= hoje.day else 0 for numero in semana] for semana in calendario_mes]
     nomes_dias = ("segunda-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sabado", "domingo")
     agenda_mensal = {}
     cancelamentos_por_data = {(item["turma_id"], item["data"]): item for item in painel.get("cancelamentos_aula", [])}
