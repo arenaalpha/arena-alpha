@@ -15,6 +15,10 @@
       <p>As confirmações e as mensagens da rifa agora são feitas exclusivamente na guia <a class="link-botao" href="{{ url_for('painel_admin', secao='whatsapp') }}">💬 WhatsApp</a>.</p>
     </section>
     <section class="historico">
+      <div class="historico-titulo"><div><h2>Todos os lançamentos da rifa</h2><p>Valor confirmado: <strong>R$ {{ '%.2f'|format(rifa_financeiro.receita|default(0))|replace('.', ',') }}</strong></p></div></div>
+      <div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Ação</th></tr></thead><tbody>{% for pagamento in rifa_financeiro.pagamentos|default([]) %}<tr><td>{{ pagamento.pago_em or '-' }}</td><td>{{ pagamento.aluno }}</td><td>R$ {{ '%.2f'|format(pagamento.valor)|replace('.', ',') }}</td><td><form method="post" action="{{ url_for('acao_admin') }}" onsubmit="return confirm('Excluir este pagamento da rifa? O financeiro será atualizado.');"><input type="hidden" name="acao" value="excluir_pagamento"><input type="hidden" name="secao" value="rifa"><input type="hidden" name="pagamento_id" value="{{ pagamento.id }}"><button class="link-botao perigo-texto">Excluir pagamento</button></form></td></tr>{% else %}<tr><td colspan="4">Nenhum pagamento confirmado na rifa.</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+    <section class="historico">
       <h2>Tabela oficial · 1 a 100</h2>
       <div class="tabela-rifa">
         {% for numero in range(1,101) %}
