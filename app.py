@@ -733,7 +733,8 @@ def painel_professor():
         alunos = []
         for turma_id in ids:
             alunos.extend(Turmas().alunos_da_turma(turma_id))
-    return render_template("professor_painel.html", professor=professor, turmas=turmas, alunos=alunos)
+        cancelamentos = banco.execute("SELECT id, turma_id, data, aviso FROM cancelamentos_aula WHERE turma_id IN ({}) ORDER BY data".format(",".join("?" for _ in ids) or "NULL"), tuple(ids)).fetchall()
+    return render_template("professor_painel.html", professor=professor, turmas=turmas, alunos=alunos, cancelamentos=[dict(item) for item in cancelamentos], hoje_iso=date.today().isoformat())
 
 
 @app.post("/professor/aula")
@@ -751,9 +752,23 @@ def acao_professor_aula():
     if turma is None:
         flash("Você não tem permissão para alterar esta turma.", "erro")
     else:
-        try: Turmas().atualizar_status_aula(int(request.form["turma_id"]), request.form["status"], request.form.get("aviso", ""))
+        try:
+            acao = request.form.get("acao", "cancelar_data")
+            if acao == "cancelar_data":
+                data_cancelamento = date.fromisoformat(request.form.get("data", ""))
+                aviso = request.form.get("aviso", "").strip()
+                if data_cancelamento < date.today() or not aviso:
+                    raise ValueError("Informe uma data de hoje em diante e o motivo do cancelamento.")
+                with conectar() as banco:
+                    banco.execute("INSERT INTO cancelamentos_aula (turma_id, data, aviso) VALUES (?, ?, ?) ON CONFLICT (turma_id, data) DO UPDATE SET aviso = EXCLUDED.aviso", (int(request.form["turma_id"]), data_cancelamento.isoformat(), aviso))
+                flash("Cancelamento registrado somente para a data escolhida.", "sucesso")
+            elif acao == "reativar_data":
+                with conectar() as banco:
+                    banco.execute("DELETE FROM cancelamentos_aula WHERE id = ? AND turma_id = ?", (int(request.form["cancelamento_id"]), int(request.form["turma_id"])))
+                flash("Aula desta data reativada.", "sucesso")
+            else:
+                raise ValueError("Use o cancelamento por data.")
         except ValueError as erro: flash(str(erro), "erro")
-        else: flash("Status da aula atualizado.", "sucesso")
     return redirect(url_for("painel_professor"))
 
 
