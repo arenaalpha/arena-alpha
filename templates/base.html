@@ -14,6 +14,27 @@
     {% if avisos_total|default(0) %}<a class="balão-avisos" href="{{ url_for('painel_admin', secao='whatsapp') }}"><span>🔔</span><div><strong>{{ avisos_total }} aviso{{ 's' if avisos_total != 1 else '' }} aguardando</strong><small>{% if avisos_pendentes.experimentais %}{{ avisos_pendentes.experimentais }} aula{{ 's' if avisos_pendentes.experimentais != 1 else '' }} experimental{% endif %}{% if avisos_pendentes.inscricoes %}{% if avisos_pendentes.experimentais %} · {% endif %}{{ avisos_pendentes.inscricoes }} {{ 'inscrições' if avisos_pendentes.inscricoes != 1 else 'inscrição' }}{% endif %}{% if avisos_pendentes.reservas %}{% if avisos_pendentes.experimentais or avisos_pendentes.inscricoes %} · {% endif %}{{ avisos_pendentes.reservas }} reserva{{ 's' if avisos_pendentes.reservas != 1 else '' }}{% endif %}{% if avisos_pendentes.rifa %}{% if avisos_pendentes.experimentais or avisos_pendentes.inscricoes or avisos_pendentes.reservas %} · {% endif %}{{ avisos_pendentes.rifa }} número{{ 's' if avisos_pendentes.rifa != 1 else '' }} da rifa{% endif %}</small></div><b>Ver agora</b></a>{% endif %}
     {% block content %}{% endblock %}
   </main>
-  <footer>ARENA ALPHA · Gestão esportiva</footer>
+    <footer>ARENA ALPHA · Gestão esportiva</footer>
+    {% if secao is defined %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const menu = document.querySelector('.gestao-menu nav');
+            if (!menu) return;
+
+            menu.innerHTML = `
+                <a class="{{ 'ativo' if secao == 'inicio' else '' }}" href="{{ url_for('painel_admin', secao='inicio') }}">⌂ Início</a>
+                <a class="{{ 'ativo' if secao == 'alunos' else '' }}" href="{{ url_for('painel_admin', secao='alunos') }}">👥 Alunos</a>
+                <a class="{{ 'ativo' if secao == 'professores' else '' }}" href="{{ url_for('painel_admin', secao='professores') }}">👨‍🏫 Professores</a>
+                <a class="{{ 'ativo' if secao == 'experimentais' else '' }}" href="{{ url_for('painel_admin', secao='experimentais') }}">🧪 Aula experimental</a>
+                <a class="{{ 'ativo' if secao == 'turmas' else '' }}" href="{{ url_for('painel_admin', secao='turmas') }}">🏐 Turmas</a>
+                <a class="{{ 'ativo' if secao == 'reservas' else '' }}" href="{{ url_for('painel_admin', secao='reservas') }}">📅 Locação</a>
+                <a class="{{ 'ativo' if secao == 'pagamentos' else '' }}" href="{{ url_for('painel_admin', secao='pagamentos') }}">🪙 Financeiro</a>
+                <a class="{{ 'ativo' if secao == 'whatsapp' else '' }}" href="{{ url_for('painel_admin', secao='whatsapp') }}">💬 WhatsApp</a>
+                <a class="menu-rifa {{ 'ativo' if secao == 'rifa' else '' }}" href="{{ url_for('painel_admin', secao='rifa') }}">🎟️ Rifa</a>
+                <a class="{{ 'ativo' if secao == 'administracao' else '' }}" href="{{ url_for('painel_admin', secao='administracao') }}">⚙️ Administração</a>
+            `;
+        });
+    </script>
+    {% endif %}
 </body>
 </html>
