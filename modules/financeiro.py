@@ -50,13 +50,28 @@ class Financeiro:
             quantidade_receitas = banco.execute(
                 "SELECT COUNT(*) FROM pagamentos WHERE substr(pago_em, 1, 7) = ?", (mes,)
             ).fetchone()[0]
-        receitas = float(receitas)
+            locacoes = banco.execute(
+                "SELECT data, valor FROM agenda WHERE status = 'Confirmada'"
+            ).fetchall()
+        receitas_locacao = 0.0
+        for locacao in locacoes:
+            try:
+                data_locacao = datetime.strptime(str(locacao["data"]), "%d/%m/%Y").date()
+            except ValueError:
+                try:
+                    data_locacao = datetime.strptime(str(locacao["data"]), "%Y-%m-%d").date()
+                except ValueError:
+                    continue
+            if data_locacao.strftime("%Y-%m") == mes:
+                receitas_locacao += float(locacao["valor"] or 0)
+        receitas = float(receitas) + receitas_locacao
         despesas = float(despesas)
         return {
             "receitas": receitas,
             "despesas": despesas,
             "saldo": receitas - despesas,
             "pagamentos": quantidade_receitas,
+            "locacoes": receitas_locacao,
         }
 
     def resumo_geral(self):
@@ -83,8 +98,28 @@ class Financeiro:
             despesas = banco.execute(
                 "SELECT descricao, valor, data, 'Despesa' AS tipo, categoria FROM despesas"
             ).fetchall()
+            locacoes = banco.execute(
+                """SELECT cliente, tipo_locacao, valor, data, horario FROM agenda
+                   WHERE status = 'Confirmada'"""
+            ).fetchall()
         itens = [dict(item) for item in receitas] + [dict(item) for item in despesas]
-        itens.sort(key=lambda item: item["data"] or "", reverse=True)
+        for locacao in locacoes:
+            item = dict(locacao)
+            evento = "evento" in str(item.get("tipo_locacao") or "").lower()
+            itens.append({
+                "descricao": f"{'Evento' if evento else 'Locação por hora'} · {item['cliente']} · {item.get('horario') or '-'}",
+                "valor": item["valor"], "data": item["data"], "tipo": "Receita",
+                "categoria": "Locação de espaço" if evento else "Locação por hora",
+            })
+        def ordem(item):
+            texto = str(item.get("data") or "")
+            for formato in ("%Y-%m-%d", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(texto, formato).date().isoformat()
+                except ValueError:
+                    pass
+            return texto
+        itens.sort(key=ordem, reverse=True)
         return itens[:limite]
 
     def relatorio(self):
