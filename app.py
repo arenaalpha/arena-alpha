@@ -686,6 +686,11 @@ def volei_de_areia():
     return render_template("volei_de_areia.html")
 
 
+@app.get("/futvolei")
+def futvolei():
+    return render_template("futvolei.html")
+
+
 @app.route("/portal", methods=["GET", "POST"])
 def portal():
     if request.method == "POST":
