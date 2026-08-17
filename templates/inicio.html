@@ -7,12 +7,17 @@
     <p>Escolha o que deseja fazer. É rápido, fácil e direto.</p>
     <div class="acoes">
       <a class="botao botao-grande" href="{{ url_for('aulas') }}"><b>🏐 Aula experimental</b><small>Ver turmas e horários</small></a>
-      <a class="botao secundario botao-grande" href="{{ url_for('volei_de_areia') }}"><b>🏐 Vôlei de areia</b><small>Informações e valores</small></a>
-      <a class="botao secundario botao-grande" href="{{ url_for('futvolei') }}"><b>&#9917; Futv&ocirc;lei</b><small>Informa&ccedil;&otilde;es e valores</small></a>
+      <div class="atalhos-modalidades">
+      <a class="botao-volei" href="{{ url_for('volei_de_areia') }}" aria-label="Vôlei de areia: informações e valores"><span aria-hidden="true">🏐</span><small>Vôlei de areia<br>Informações e valores</small></a>
+      <a class="botao-futvolei" href="{{ url_for('futvolei') }}" aria-label="Futvôlei: informações e valores"><span aria-hidden="true">⚽</span><small>Futvôlei<br>Informações e valores</small></a>
+      </div>
       <a class="botao botao-grande" href="{{ url_for('inscricao') }}"><b>📝 Fazer inscrição</b><small>Cadastro completo</small></a>
       <a class="botao secundario botao-grande" href="{{ url_for('locacao') }}"><b>⚽ Reservar quadra</b><small>Eventos e locações</small></a>
       <a class="botao botao-grande" href="{{ url_for('rifa') }}"><b>🎟 Participar da rifa</b><small>R$ 10,00 por número</small></a>
     </div>
   </div>
 </section>
+<style>
+.atalhos-modalidades{display:flex;flex-direction:column;gap:12px}.botao-volei,.botao-futvolei{width:146px;height:146px;border-radius:50%;border:5px solid #d59b28;box-shadow:0 7px 20px #0008;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:#151515;padding:8px;font-weight:900;transition:transform .18s}.botao-volei{background:radial-gradient(circle at 35% 28%,#fff 0 8%,#e7edf2 9% 19%,#245c98 20% 30%,#fff 31% 43%,#245c98 44% 55%,#fff 56% 68%,#245c98 69% 80%,#edf2f5 81%)}.botao-futvolei{background:radial-gradient(circle at 34% 24%,#fff 0 9%,#202020 10% 18%,#f6f6f6 19% 32%,#202020 33% 42%,#f6f6f6 43% 58%,#202020 59% 68%,#e7e7e7 69%)}.botao-volei:hover,.botao-futvolei:hover{transform:scale(1.05)}.botao-volei span,.botao-futvolei span{font-size:3.5rem;line-height:1}.botao-volei small,.botao-futvolei small{font-size:.68rem;line-height:1.1;margin-top:3px;background:#fffdf0dd;border-radius:7px;padding:3px 5px}@media(max-width:580px){.botao-volei,.botao-futvolei{width:126px;height:126px}}
+</style>
 {% endblock %}
