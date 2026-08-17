@@ -1,16 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Futv&ocirc;lei | Arena Alpha{% endblock %}
 {% block content %}
-<section class="cabecalho">
-  <p class="selo">&#9917; FUTV&Ocirc;LEI</p>
-  <h1>Informa&ccedil;&otilde;es e valores</h1>
-  <p>Treine Futv&ocirc;lei na Arena Alpha. Escolha sua turma e evolua dentro da areia.</p>
+<section class="artes-volei artes-futvolei">
+  <img src="{{ url_for('static', filename='arte-futvolei.jpeg') }}" alt="Aulas de Futv&ocirc;lei da Arena Alpha: turmas, hor&aacute;rios e valores">
+  <img src="{{ url_for('static', filename='arte-futvolei-informacoes.jpeg') }}" alt="Informa&ccedil;&otilde;es sobre Futv&ocirc;lei da Arena Alpha">
 </section>
-<section class="cards planos-futvolei">
-  <article><span class="icone">&#128100;</span><h2>1x por semana</h2><p>Plano mensal para uma aula por semana.</p><strong>R$ 65,00/m&ecirc;s</strong></article>
-  <article><span class="icone">&#128101;</span><h2>2x por semana</h2><p>Plano mensal para duas aulas por semana.</p><strong>R$ 100,00/m&ecirc;s</strong></article>
-  <article><span class="icone">&#9917;</span><h2>Di&aacute;ria</h2><p>Participe de uma aula avulsa.</p><strong>R$ 25,00</strong></article>
-</section>
-<section class="historico"><h2>Turmas de Futv&ocirc;lei</h2><p><b>Alpha Futv&ocirc;lei 1</b> &middot; Ter&ccedil;a e quinta, 19:00</p><p><b>Alpha Futv&ocirc;lei 2</b> &middot; Ter&ccedil;a e quinta, 20:00</p></section>
-<div class="acoes"><a class="botao botao-grande" href="{{ url_for('aulas') }}"><b>&#9917; Agendar aula experimental</b><small>Escolha sua turma</small></a><a class="botao secundario botao-grande" href="{{ url_for('inscricao') }}"><b>&#128221; Fazer inscri&ccedil;&atilde;o</b><small>Cadastre-se na Arena</small></a></div>
 {% endblock %}
