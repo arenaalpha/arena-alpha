@@ -537,7 +537,7 @@ def enviar_acao_admin(acao, dados):
             obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
             if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
                 raise ValueError("Preencha todos os campos obrigatorios do cadastro.")
-            planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
+            planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 80,00": 80, "2x por semana - R$ 100,00": 100, "Diaria - R$ 20,00 por dia": 20}}
             valor = next((preco for plano, preco in planos.get(dados["esporte"], {}).items() if dados["frequencia"].startswith(plano.split(" - ")[0])), None)
             if valor is None: raise ValueError("Escolha uma frequencia valida para o esporte.")
             turma = next((item for item in Turmas().listar() if item["id"] == int(dados["turma_id"])), None)
@@ -1030,7 +1030,7 @@ def inscricao():
             dados = {campo: request.form.get(campo, "") for campo in Alunos.campos}
             if modalidade_para_exibicao(turma["modalidade"]) != modalidade_para_exibicao(dados["esporte"]):
                 raise ValueError("Escolha uma turma da modalidade selecionada.")
-            planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 60,00": 60, "2x por semana - R$ 85,00": 85, "Diaria - R$ 20,00 por dia": 20}}
+            planos = {"Volei de areia": {"1x por semana - R$ 65,00": 65, "2x por semana - R$ 120,00": 120, "Diaria - R$ 25,00 por dia": 25}, "Futvolei": {"1x por semana - R$ 80,00": 80, "2x por semana - R$ 100,00": 100, "Diaria - R$ 20,00 por dia": 20}}
             valor = next((preco for plano, preco in planos.get(dados["esporte"], {}).items() if dados["frequencia"].startswith(plano.split(" - ")[0])), None)
             if valor is None:
                 raise ValueError("Escolha uma frequência válida para o esporte.")

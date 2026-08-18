@@ -661,7 +661,7 @@ class ArenaAlpha(ctk.CTk):
         valor_exibido.pack(anchor="w", padx=22, pady=(5, 0))
         planos = {
             "Volei de areia": [("1x por semana - R$ 65,00", 65), ("2x por semana - R$ 120,00", 120), ("Diaria - R$ 25,00 por dia", 25)],
-            "Futvolei": [("1x por semana - R$ 60,00", 60), ("2x por semana - R$ 85,00", 85), ("Diaria - R$ 20,00 por dia", 20)],
+            "Futvolei": [("1x por semana - R$ 80,00", 80), ("2x por semana - R$ 100,00", 100), ("Diaria - R$ 20,00 por dia", 20)],
         }
 
         def atualizar_planos(valor=None):
