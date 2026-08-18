@@ -97,7 +97,7 @@ class Turmas(Repositorio):
     def alunos_da_turma(self, turma_id):
         with conectar() as banco:
             return banco.execute(
-                """SELECT a.id, a.nome, a.whatsapp, a.esporte, a.frequencia, m.dia_treino
+                """SELECT a.id, a.nome, a.whatsapp, a.esporte, a.frequencia, a.data_nascimento, m.dia_treino
                    FROM matriculas_turma m
                    JOIN alunos a ON a.id = m.aluno_id
                    WHERE m.turma_id = ? ORDER BY a.nome""",

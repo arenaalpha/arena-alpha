@@ -69,7 +69,7 @@ def aluno_portal():
         if aluno is None:
             return jsonify(erro="Aluno nao encontrado."), 404
         pagamentos = banco.execute("SELECT valor, data, data_vencimento, pago_em, status FROM pagamentos WHERE aluno_id = ? OR (aluno_id IS NULL AND aluno = ?) ORDER BY id DESC", (aluno["id"], aluno["nome"])).fetchall()
-    campos = ("id", "nome", "whatsapp", "esporte", "frequencia", "valor_plano", "dia_vencimento")
+    campos = ("id", "nome", "whatsapp", "esporte", "frequencia", "valor_plano", "dia_vencimento", "data_nascimento")
     return jsonify(aluno={campo: aluno[campo] for campo in campos}, pagamentos=[dict(item) for item in pagamentos], aulas=aulas_matriculadas(aluno["id"]))
 
 
@@ -81,7 +81,7 @@ def painel_admin():
     if not SEGREDO or not hmac.compare_digest(assinatura, esperada):
         return jsonify(erro="Assinatura invalida."), 401
     with conectar() as banco:
-        alunos = banco.execute("SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos ORDER BY nome").fetchall()
+        alunos = banco.execute("SELECT a.*, (SELECT m.turma_id FROM matriculas_turma m WHERE m.aluno_id = a.id ORDER BY m.id LIMIT 1) AS turma_id FROM alunos a ORDER BY a.nome").fetchall()
         turmas = banco.execute("SELECT id, nome, modalidade, dia_semana, dia_semana_2, horario, status_aula, aviso_aula FROM turmas ORDER BY horario").fetchall()
         reservas = banco.execute("SELECT cliente, whatsapp, data, horario, tipo_locacao, valor FROM agenda ORDER BY id DESC LIMIT 30").fetchall()
         pagamentos = banco.execute("SELECT id, aluno, valor, pago_em, data_vencimento, status FROM pagamentos ORDER BY id DESC LIMIT 30").fetchall()

@@ -14,6 +14,13 @@
     {% with mensagens = get_flashed_messages(with_categories=true) %}{% for categoria, mensagem in mensagens %}<p class="alerta {{ categoria }}">{{ mensagem }}</p>{% endfor %}{% endwith %}
     {% if avisos_total|default(0) %}<a class="balão-avisos" href="{{ url_for('painel_admin', secao='whatsapp') }}"><span>🔔</span><div><strong>{{ avisos_total }} aviso{{ 's' if avisos_total != 1 else '' }} aguardando</strong><small>{% if avisos_pendentes.experimentais %}{{ avisos_pendentes.experimentais }} aula{{ 's' if avisos_pendentes.experimentais != 1 else '' }} experimental{% endif %}{% if avisos_pendentes.inscricoes %}{% if avisos_pendentes.experimentais %} · {% endif %}{{ avisos_pendentes.inscricoes }} {{ 'inscrições' if avisos_pendentes.inscricoes != 1 else 'inscrição' }}{% endif %}{% if avisos_pendentes.reservas %}{% if avisos_pendentes.experimentais or avisos_pendentes.inscricoes %} · {% endif %}{{ avisos_pendentes.reservas }} reserva{{ 's' if avisos_pendentes.reservas != 1 else '' }}{% endif %}{% if avisos_pendentes.rifa %}{% if avisos_pendentes.experimentais or avisos_pendentes.inscricoes or avisos_pendentes.reservas %} · {% endif %}{{ avisos_pendentes.rifa }} número{{ 's' if avisos_pendentes.rifa != 1 else '' }} da rifa{% endif %}</small></div><b>Ver agora</b></a>{% endif %}
     {% block content %}{% endblock %}
+    {% if aniversariantes_professor is defined %}
+    <section class="historico aniversariantes-professor"><h2>🎂 Aniversariantes das minhas turmas</h2>{% for aniversariante in aniversariantes_professor %}<article class="linha-turma"><div><strong>Dia {{ aniversariante.dia }} · {{ aniversariante.nome }}</strong><span>{{ aniversariante.turma }}</span></div></article>{% else %}<p class="vazio">Não há aniversariantes cadastrados neste mês nas suas turmas.</p>{% endfor %}</section>
+    {% endif %}
+    {% if aniversario_hoje|default(false) %}
+    <div class="aniversario-confetes" aria-hidden="true"><i>🎉</i><i>✨</i><i>🎊</i><i>⭐</i><i>🎉</i><i>✨</i><i>🎊</i><i>⭐</i></div><section class="aniversario-parabens"><strong>🎂 Parabéns, {{ aluno.nome.split(' ')[0] }}!</strong><span>Hoje é o seu dia. A Arena Alpha deseja muita alegria, saúde e esporte!</span></section>
+    <style>.aniversario-confetes{position:fixed;inset:0;pointer-events:none;z-index:8;overflow:hidden;background:linear-gradient(135deg,#ffdb6a22,#ff5c8a18,#57c8ff18)}.aniversario-confetes i{position:absolute;font-style:normal;font-size:2rem;animation:confete-cair 4.5s linear infinite}.aniversario-confetes i:nth-child(1){left:5%;animation-delay:-1s}.aniversario-confetes i:nth-child(2){left:18%;animation-delay:-3s}.aniversario-confetes i:nth-child(3){left:34%;animation-delay:-2s}.aniversario-confetes i:nth-child(4){left:51%;animation-delay:-4s}.aniversario-confetes i:nth-child(5){left:66%;animation-delay:-.5s}.aniversario-confetes i:nth-child(6){left:79%;animation-delay:-2.5s}.aniversario-confetes i:nth-child(7){left:90%;animation-delay:-3.5s}.aniversario-confetes i:nth-child(8){left:43%;animation-delay:-1.5s}@keyframes confete-cair{from{transform:translateY(-15vh) rotate(0)}to{transform:translateY(110vh) rotate(540deg)}}.aniversario-parabens{position:relative;z-index:9;display:grid;gap:5px;padding:17px 20px;margin:0 0 18px;border:2px solid #ffd15c;border-radius:16px;background:linear-gradient(110deg,#ff5d8a,#7b4dff,#15b9e6);color:#fff;box-shadow:0 12px 32px #6f278866;text-align:center}.aniversario-parabens strong{font-size:1.3rem}</style>
+    {% endif %}
   </main>
   {% if secao is not defined %}<a class="siga-instagram" href="https://www.instagram.com/alpha.areia/" target="_blank" rel="noopener" aria-label="Siga a Arena Alpha no Instagram: alpha.areia"><span aria-hidden="true">&#128247;</span><b>Siga-nos</b><small>@alpha.areia</small></a>{% endif %}
     <footer>ARENA ALPHA · Gestão esportiva</footer>
@@ -27,6 +34,7 @@
             menu.innerHTML = `
                 <a class="{{ 'ativo' if secao == 'inicio' else '' }}" href="{{ url_for('painel_admin', secao='inicio') }}">⌂ Início</a>
                 <a class="{{ 'ativo' if secao == 'alunos' else '' }}" href="{{ url_for('painel_admin', secao='alunos') }}">👥 Alunos</a>
+                <a class="{{ 'ativo' if secao == 'aniversariantes' else '' }}" href="{{ url_for('painel_admin', secao='aniversariantes') }}">🎂 Aniversariantes</a>
                 <a class="{{ 'ativo' if secao == 'professores' else '' }}" href="{{ url_for('painel_admin', secao='professores') }}">👨‍🏫 Professores</a>
                 <a class="{{ 'ativo' if secao == 'experimentais' else '' }}" href="{{ url_for('painel_admin', secao='experimentais') }}">🧪 Aula experimental</a>
                 <a class="{{ 'ativo' if secao == 'turmas' else '' }}" href="{{ url_for('painel_admin', secao='turmas') }}">🏐 Turmas</a>
@@ -40,5 +48,8 @@
         });
     </script>
     {% endif %}
-</body>
+    {% if secao is defined and secao == 'inicio' %}
+    <style>.bolo-aniversario{margin:4px 0 0;border:0;border-radius:999px;background:#ffe08a;color:#3d2800;font-weight:800;padding:3px 7px;cursor:pointer}.detalhes-aniversario{display:block;margin-top:3px;padding:5px;border-radius:7px;background:#fff3c8;color:#312300;font-size:.72rem;line-height:1.35;box-shadow:0 2px 7px #0003}.detalhes-aniversario span{display:block}</style>
+    <script>document.addEventListener('DOMContentLoaded',()=>{const aniversariantes={{ aniversariantes_calendario|default({})|tojson }};document.querySelectorAll('.dias-calendario .dia-agenda').forEach(celula=>{const rotulo=celula.querySelector('strong');const itens=aniversariantes[String(Number(rotulo?.textContent||0))]||[];if(!itens.length)return;const botao=document.createElement('button');botao.type='button';botao.className='bolo-aniversario';botao.textContent=`🎂 ${itens.length}`;const detalhes=document.createElement('span');detalhes.className='detalhes-aniversario';detalhes.hidden=true;detalhes.innerHTML=itens.map(item=>`<span>🎉 ${item.nome}</span>`).join('');botao.addEventListener('click',()=>detalhes.hidden=!detalhes.hidden);celula.append(botao,detalhes);});});</script>
+    {% endif %}</body>
 </html>

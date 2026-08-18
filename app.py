@@ -49,6 +49,35 @@ def banco_online():
     return os.environ.get("DATABASE_URL", "").startswith(("postgres://", "postgresql://"))
 
 
+def data_nascimento_valida(valor):
+    """Converte a data de nascimento do cadastro para uma data utilizável."""
+    texto = str(valor or "").strip()
+    for formato in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            continue
+    return None
+
+
+def aniversariantes_do_mes(alunos, turmas=(), referencia=None):
+    referencia = referencia or date.today()
+    nomes_turmas = {item.get("id"): item.get("nome", "Turma não informada") for item in turmas}
+    resultado = []
+    for aluno in alunos:
+        nascimento = data_nascimento_valida(aluno.get("data_nascimento"))
+        if not nascimento or nascimento.month != referencia.month:
+            continue
+        resultado.append({"id": aluno.get("id"), "nome": aluno.get("nome") or "Aluno", "dia": nascimento.day, "data": nascimento.strftime("%d/%m"), "turma": nomes_turmas.get(aluno.get("turma_id"), "Turma não informada")})
+    return sorted(resultado, key=lambda item: (item["dia"], item["nome"].casefold()))
+
+
+def eh_aniversario_hoje(valor):
+    nascimento = data_nascimento_valida(valor)
+    hoje = date.today()
+    return bool(nascimento and nascimento.day == hoje.day and nascimento.month == hoje.month)
+
+
 def campo_pix(identificador, valor):
     texto = str(valor)
     return f"{identificador}{len(texto):02d}{texto}"
@@ -756,7 +785,9 @@ def painel_professor():
         for turma_id in ids:
             alunos.extend(Turmas().alunos_da_turma(turma_id))
         cancelamentos = banco.execute("SELECT id, turma_id, data, aviso FROM cancelamentos_aula WHERE turma_id IN ({}) ORDER BY data".format(",".join("?" for _ in ids) or "NULL"), tuple(ids)).fetchall()
-    return render_template("professor_painel.html", professor=professor, turmas=turmas, alunos=alunos, cancelamentos=[dict(item) for item in cancelamentos], hoje_iso=date.today().isoformat())
+    alunos_lista = [dict(item) for item in alunos]
+    aniversariantes_professor = aniversariantes_do_mes(alunos_lista, [dict(item) for item in turmas])
+    return render_template("professor_painel.html", professor=professor, turmas=turmas, alunos=alunos_lista, cancelamentos=[dict(item) for item in cancelamentos], aniversariantes_professor=aniversariantes_professor, hoje_iso=date.today().isoformat())
 
 
 @app.post("/professor/aula")
@@ -867,8 +898,14 @@ def painel_admin():
         "rifa": len(painel.get("rifa_pendentes", [])),
     }
     avisos_total = sum(avisos_pendentes.values())
+    aniversariantes_mes = aniversariantes_do_mes(painel.get("alunos", []), painel.get("turmas", []), hoje)
+    aniversariantes_calendario = {}
+    for aniversariante in aniversariantes_mes:
+        aniversariantes_calendario.setdefault(aniversariante["dia"], []).append(aniversariante)
+    if secao == "aniversariantes":
+        return render_template("admin_aniversariantes.html", secao=secao, aniversariantes_mes=aniversariantes_mes, hoje=hoje.day, mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
     modelo = "admin_alunos.html" if secao == "alunos" else "admin_turmas.html" if secao == "turmas" else "admin_professores.html" if secao == "professores" else "admin_financeiro.html" if secao == "pagamentos" else "admin_inicio.html" if secao == "inicio" else "admin_experimentais.html" if secao == "experimentais" else "admin_whatsapp.html" if secao == "whatsapp" else "admin_rifa.html" if secao == "rifa" else "admin_parceiros.html" if secao == "parceiros" else "admin_reservas.html" if secao == "reservas" else "admin_administracao.html" if secao == "administracao" else "admin_painel.html"
-    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, agenda_locacao_mensal=agenda_locacao_mensal, hoje=hoje.day, hoje_iso=hoje.isoformat(), mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
+    return render_template(modelo, secao=secao, calendario_mes=calendario_mes, agenda_mensal=agenda_mensal, agenda_experimentais_mensal=agenda_experimentais_mensal, agenda_locacao_mensal=agenda_locacao_mensal, aniversariantes_mes=aniversariantes_mes, aniversariantes_calendario=aniversariantes_calendario, hoje=hoje.day, hoje_iso=hoje.isoformat(), mes_calendario=hoje.strftime("%m/%Y"), avisos_pendentes=avisos_pendentes, avisos_total=avisos_total, **painel)
 
 
 @app.post("/admin/acao")
@@ -916,6 +953,7 @@ def meu_portal():
         situacao_pagamento=situacao_pagamento_portal(aluno, pagamentos), desconto_volei=tem_desconto_volei(aluno),
         valor_pix=valor_pix, vencimento_pix=vencimento_pix, desconto_pix=desconto_pix,
         codigo_pix_mensalidade=codigo_pix_mensalidade, referencia_pix=referencia_pix,
+        aniversario_hoje=eh_aniversario_hoje(aluno["data_nascimento"]),
     )
 
 

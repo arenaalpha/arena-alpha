@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Aniversariantes | Gestão Arena Alpha{% endblock %}
+{% block content %}
+<div class="gestao-layout">
+  <aside class="gestao-menu"><div class="marca-mini">ARENA <em>ALPHA</em></div><nav></nav></aside>
+  <section class="gestao-conteudo">
+    <p class="selo">CELEBRAÇÕES · {{ mes_calendario }}</p>
+    <h1>🎂 Aniversariantes do mês</h1>
+    <p class="subtitulo">Lista automática conforme a data de nascimento cadastrada na matrícula.</p>
+    <section class="historico">
+      {% for aniversariante in aniversariantes_mes %}
+      <article class="linha-turma"><div><strong>🎂 Dia {{ aniversariante.dia }} · {{ aniversariante.nome }}</strong><span>{{ aniversariante.turma }}</span></div></article>
+      {% else %}<p class="vazio">Nenhum aniversariante cadastrado neste mês.</p>{% endfor %}
+    </section>
+  </section>
+</div>
+{% endblock %}
