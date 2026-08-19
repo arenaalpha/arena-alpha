@@ -666,7 +666,7 @@ def aluno_do_portal():
             return None
         with conectar() as banco:
             return banco.execute(
-                "SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos WHERE id = ?",
+                "SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento, data_nascimento FROM alunos WHERE id = ?",
                 (identificador,),
             ).fetchone()
 
@@ -677,7 +677,7 @@ def aluno_do_portal():
         return None
     with conectar() as banco:
         return banco.execute(
-            "SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento FROM alunos WHERE id = ?",
+            "SELECT id, nome, whatsapp, esporte, frequencia, valor_plano, dia_vencimento, data_nascimento FROM alunos WHERE id = ?",
             (identificador,),
         ).fetchone()
 
