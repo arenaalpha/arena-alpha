@@ -147,6 +147,7 @@ def _criar_postgres():
         banco.execute("ALTER TABLE professores ADD COLUMN IF NOT EXISTS endereco TEXT")
         banco.execute("ALTER TABLE professores ADD COLUMN IF NOT EXISTS usuario TEXT")
         banco.execute("ALTER TABLE professores ADD COLUMN IF NOT EXISTS senha_hash TEXT")
+        banco.execute("ALTER TABLE professores ADD COLUMN IF NOT EXISTS recebe_comissao_futvolei INTEGER NOT NULL DEFAULT 1")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante BYTEA")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_nome TEXT")
         banco.execute("ALTER TABLE inscricoes_portal ADD COLUMN IF NOT EXISTS comprovante_tipo TEXT")
@@ -197,7 +198,7 @@ def _criar_sqlite():
             for nome, tipo in colunas.items():
                 if nome not in existentes: banco.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
         existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(professores)").fetchall()}
-        for nome, tipo in {"endereco":"TEXT", "usuario":"TEXT", "senha_hash":"TEXT"}.items():
+        for nome, tipo in {"endereco":"TEXT", "usuario":"TEXT", "senha_hash":"TEXT", "recebe_comissao_futvolei":"INTEGER NOT NULL DEFAULT 1"}.items():
             if nome not in existentes: banco.execute(f"ALTER TABLE professores ADD COLUMN {nome} {tipo}")
         existentes = {linha["name"] for linha in banco.execute("PRAGMA table_info(aulas_experimentais)").fetchall()}
         for nome, tipo in {"turma":"TEXT", "resultado":"TEXT", "resultado_em":"TEXT"}.items():

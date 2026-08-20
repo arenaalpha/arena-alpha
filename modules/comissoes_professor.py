@@ -12,9 +12,11 @@ class ComissoesProfessor:
         referencia = referencia or date.today()
         mes = referencia.strftime("%Y-%m")
         with conectar() as banco:
-            professor = banco.execute("SELECT id, nome FROM professores WHERE id = ?", (professor_id,)).fetchone()
+            professor = banco.execute("SELECT id, nome, COALESCE(recebe_comissao_futvolei, 1) AS recebe_comissao_futvolei FROM professores WHERE id = ?", (professor_id,)).fetchone()
             if professor is None:
                 raise ValueError("Professor não encontrado.")
+            if not int(professor["recebe_comissao_futvolei"] or 0):
+                return dict(professor), []
             pagamentos = banco.execute(
                 """SELECT DISTINCT p.id AS pagamento_id, p.aluno, p.valor, p.pago_em,
                           a.nome AS aluno_nome, t.nome AS turma, t.modalidade,
@@ -43,6 +45,11 @@ class ComissoesProfessor:
             itens.append(item)
         return dict(professor), itens
 
+    def professor_recebe_comissao(self, professor_id):
+        with conectar() as banco:
+            professor = banco.execute("SELECT COALESCE(recebe_comissao_futvolei, 1) AS ativo FROM professores WHERE id = ?", (professor_id,)).fetchone()
+        return bool(professor and int(professor["ativo"] or 0))
+
     def resumo_professor(self, professor_id, referencia=None):
         referencia = referencia or date.today()
         professor, itens = self._pagamentos_do_professor(professor_id, referencia)
@@ -64,11 +71,13 @@ class ComissoesProfessor:
                 """SELECT DISTINCT p.id FROM professores p
                    JOIN professor_turmas pt ON pt.professor_id = p.id
                    JOIN turmas t ON t.id = pt.turma_id
-                   WHERE lower(COALESCE(t.modalidade, '')) LIKE ?
+                   WHERE COALESCE(p.recebe_comissao_futvolei, 1) = 1
+                     AND lower(COALESCE(t.modalidade, '')) LIKE ?
                    UNION
                    SELECT DISTINCT p.id FROM professores p
                    JOIN turmas t ON lower(COALESCE(t.professor, '')) = lower(p.nome)
-                   WHERE lower(COALESCE(t.modalidade, '')) LIKE ?
+                   WHERE COALESCE(p.recebe_comissao_futvolei, 1) = 1
+                     AND lower(COALESCE(t.modalidade, '')) LIKE ?
                      AND NOT EXISTS(SELECT 1 FROM professor_turmas pt WHERE pt.turma_id = t.id)""",
                 ("%fut%", "%fut%"),
             ).fetchall()

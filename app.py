@@ -793,7 +793,7 @@ def painel_professor():
         cancelamentos = banco.execute("SELECT id, turma_id, data, aviso FROM cancelamentos_aula WHERE turma_id IN ({}) ORDER BY data".format(",".join("?" for _ in ids) or "NULL"), tuple(ids)).fetchall()
     alunos_lista = [dict(item) for item in alunos]
     aniversariantes_professor = aniversariantes_do_mes(alunos_lista, [dict(item) for item in turmas])
-    tem_comissao_futvolei = any("fut" in chave_dia_semana(turma["modalidade"]) for turma in turmas)
+    tem_comissao_futvolei = any("fut" in chave_dia_semana(turma["modalidade"]) for turma in turmas) and ComissoesProfessor().professor_recebe_comissao(professor_id)
     comissao_professor = ComissoesProfessor().resumo_professor(professor_id) if professor and tem_comissao_futvolei else {"a_receber": 0, "pago": 0, "itens": [], "mes": date.today().strftime("%m/%Y")}
     return render_template("professor_painel.html", professor=professor, turmas=turmas, alunos=alunos_lista, cancelamentos=[dict(item) for item in cancelamentos], aniversariantes_professor=aniversariantes_professor, comissao_professor=comissao_professor, tem_comissao_futvolei=tem_comissao_futvolei, hoje_iso=date.today().isoformat())
 
