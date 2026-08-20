@@ -537,8 +537,12 @@ def enviar_acao_admin(acao, dados):
                 banco.execute("INSERT INTO professor_turmas (professor_id, turma_id) VALUES (?, ?) ON CONFLICT (professor_id, turma_id) DO NOTHING", (int(dados["professor_id"]), int(dados["turma_id"])))
             return {"mensagem": "Professor vinculado à turma."}
         if acao == "remover_vinculo_professor":
-            with conectar() as banco: banco.execute("DELETE FROM professor_turmas WHERE professor_id = ? AND turma_id = ?", (int(dados["professor_id"]), int(dados["turma_id"])))
-            return {"mensagem": "Vínculo removido."}
+            with conectar() as banco:
+                professor = banco.execute("SELECT nome FROM professores WHERE id = ?", (int(dados["professor_id"]),)).fetchone()
+                if professor is None: raise ValueError("Professor não encontrado.")
+                banco.execute("DELETE FROM professor_turmas WHERE professor_id = ? AND turma_id = ?", (int(dados["professor_id"]), int(dados["turma_id"])))
+                banco.execute("UPDATE turmas SET professor = ? WHERE id = ? AND lower(COALESCE(professor, '')) = lower(?)", ("", int(dados["turma_id"]), professor["nome"]))
+            return {"mensagem": "Professor desvinculado da turma."}
         if acao == "novo_aluno":
             obrigatorios = ("nome", "data_nascimento", "cpf", "whatsapp", "endereco", "esporte", "frequencia", "como_conheceu", "restricoes_alimentares", "problema_saude", "necessidades_especiais", "menor_idade", "autorizacao_imagem", "turma_id")
             if any(not str(dados.get(campo, "")).strip() for campo in obrigatorios):
